@@ -3956,7 +3956,7 @@ function applyFlashlight(){
   const on=P.light&&P.battery>0&&!P.plugged, b=clamp(P.battery/100,0,1);
   flash.intensity=on?2.6*flashPower:0;
   flash.distance=9+15*Math.pow(b,.6);
-  flash.angle=.36+.14*Math.min(1,b*1.6);
+  flash.angle=.3+.12*Math.min(1,b*1.6);
   flash.color.copy(_fcLo).lerp(_fcHi,Math.min(1,b*1.8));
 }
 // ---- charging: plug the light into the wall; it's dark until you unplug
@@ -4893,11 +4893,11 @@ function updFlashBob(dt){
   const ty=-Math.abs(Math.sin(ph))*.32*am+.16*am, tx=Math.sin(ph)*.38*am;
   // turning drags the beam behind your view, then it catches up
   const dyaw=FB.lyaw==null?0:wrapA(P.yaw-FB.lyaw), dp=FB.lp==null?0:P.pitch-FB.lp; FB.lyaw=P.yaw; FB.lp=P.pitch;
-  FB.vx+=(-(tx-FB.x)*90-FB.vx*13)*dt+dyaw*28; FB.vy+=(-(ty-FB.y)*90-FB.vy*13)*dt-dp*22;
-  FB.x+=FB.vx*dt; FB.y+=FB.vy*dt; FB.x=clamp(FB.x,-1.4,1.4); FB.y=clamp(FB.y,-1.2,1.2);
+  FB.vx+=((tx-FB.x)*90-FB.vx*13)*dt+dyaw*12; FB.vy+=((ty-FB.y)*90-FB.vy*13)*dt-dp*10;
+  FB.x+=FB.vx*dt; FB.y+=FB.vy*dt; FB.x=clamp(FB.x,-.7,.7); FB.y=clamp(FB.y,-.6,.6);
   const j=(P.jolt||0)*.5;
-  flashTgt.position.set(.05-FB.x+R(-j,j)*.3,-.05+FB.y+j,-5);
-  flash.position.set(.24-FB.x*.01,-.22+FB.y*.012,0);
+  flashTgt.position.set(-.02-FB.x+R(-j,j)*.3,-.18+FB.y+j,-5);
+  flash.position.set(.1-FB.x*.01,-.2+FB.y*.012,0);
 }
 
 // ---------------- 3D props and pickups (PSX cardboard boxes, ammo boxes, barrels) + the corner minimap ----------------
