@@ -170,6 +170,7 @@ body.touch #keyi{bottom:calc(72px + var(--sb))}
 #wbar button small{display:block;font-size:12px;opacity:.8}
 #wbar button{height:auto;padding:3px 7px}
 @media (max-height:420px){ #banner{top:22%} .ttl{font-size:clamp(44px,11vw,110px)} .sub{margin:2px 0 10px} .btn{padding:7px 12px;font-size:19px} .btn.main{font-size:23px} .panel{padding:12px 16px;font-size:17px} .cards{margin:6px 0} .card{padding:9px 8px} .card .gl{font-size:28px} .stats{font-size:18px;margin:0 0 4px} }
+#fx-dread{opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 38%,rgba(90,0,8,.7) 70%,rgba(30,0,3,.97) 100%);will-change:opacity,transform}
 #fx-blood{background-size:cover;background-position:center;opacity:0;mix-blend-mode:normal}
 #pops{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden}
 .pop{position:absolute;transform:translate(-50%,-50%);font-family:'Anton';font-size:18px;color:#fff;letter-spacing:1px;text-shadow:0 2px 0 #000,0 0 6px #000;animation:pop 1.1s ease-out forwards;white-space:nowrap}
@@ -236,6 +237,7 @@ body.touch .tb,body.touch #tipL,body.touch #tipR,body.touch #bMap{display:none!i
 #kprompt{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(112px + var(--sb));z-index:6;font-family:'VT323',monospace;font-size:20px;letter-spacing:2px;color:#ffcf8a;text-shadow:0 0 6px #000;pointer-events:none;animation:kpp 1.4s ease-in-out infinite}
 @keyframes kpp{50%{opacity:.6}}
 body.touch #keys,body.touch #kprompt{display:none}
+@media (max-height:520px){#keys.full{font-size:12px;line-height:1.2;padding:5px 7px}#keys .kc{font-size:12px}}
 #ctxRow{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + var(--sb));display:flex;gap:10px;z-index:6}
 .ctx{pointer-events:auto;font-family:'VT323',monospace;font-size:18px;letter-spacing:1px;color:#f2e6c0;background:rgba(10,8,4,.55);border:1px solid rgba(242,230,192,.35);padding:7px 14px;border-radius:3px}
 .ctx.hidden{display:none}
@@ -285,6 +287,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
 <div class="fx" id="fx-flash"></div>
 <div class="fx" id="fx-crack" style="opacity:0;background-size:cover;background-position:center;transition:opacity .6s"></div>
 <div class="fx" id="fx-blood"></div>
+<div class="fx" id="fx-dread"></div>
 <div class="fx" id="fx-fade" style="background:#000;opacity:0;z-index:2"></div>
 <div id="pops"></div>
 <canvas id="map" class="hidden"></canvas>
@@ -2735,7 +2738,7 @@ function updateMotion(dt){
   else { MOT.stamCd-=dt; if(MOT.stamCd<=0) MOT.stamina=Math.min(100,MOT.stamina+dt*16*UP.speed); }
   if(MOT.sprintBtn&&ml<.1){ MOT.sprintBtn=false; $('bDash').classList.remove('lock'); }
   // velocity (local), with momentum
-  const base=(MOT.sprint?SPRINT:WALK)*UP.speed*(1-.38*P.ads)*(P.hp<P.maxHp*.25?.85:1)*(P.reloadT>0?.85:1)*(P.wet?.72:1);
+  const base=(MOT.sprint?SPRINT:WALK)*UP.speed*(1-.38*P.ads)*(P.hp<P.maxHp*.25?.85:1)*(P.reloadT>0?.85:1)*(P.wet?.72:1)*(P.dreadSlow||1);
   let lvx=mx*base*.82, lvz=mz*base*(mz<0?.62:1); const ll=Math.hypot(lvx,lvz); if(ll>base){ lvx*=base/ll; lvz*=base/ll; }
   const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw), rx=Math.cos(P.yaw), rz=-Math.sin(P.yaw);
   P.wx=rx*mx+fx*mz; P.wz=rz*mx+fz*mz;
@@ -4141,6 +4144,21 @@ function finishPry(l){
   const r=rand(); if(r<.45) dropItem('medkit',fx,fz); else if(r<.85) dropItem('battery',fx,fz); else dropItem('armor',fx,fz);
   msg('LOCKER OPEN','#9dffb0');
 }
+// ---- the Occupant's presence: the air gets heavy, the screen throbs, your legs stop listening
+const DREAD={k:0,ph:0,beatT:0};
+function updDread(dt){
+  const e=STALK.e; let tgt=0;
+  if(e&&!e.dead&&!e.hidden&&P.alive){ const d=Math.hypot(e.x-P.x,e.z-P.z);
+    tgt=clamp((13-d)/10,0,1); if(!e.los) tgt*=.55; if(e.staggerT>0) tgt*=.6; }
+  DREAD.k=lerp(DREAD.k,tgt,1-Math.exp(-dt*(tgt>DREAD.k?2.5:1.2)));
+  const k=DREAD.k, rate=.9+k*1.4; DREAD.ph+=dt*rate*TAU;
+  // a double-thump pulse, like a heartbeat pressing on the edges of the screen
+  const s=Math.sin(DREAD.ph), beat=Math.pow(Math.max(0,s),6)+.55*Math.pow(Math.max(0,Math.sin(DREAD.ph-1.1)),8);
+  const el=$('fx-dread'); if(el){ const o=k*(.28+.5*beat); el.style.opacity=o.toFixed(3); el.style.transform=`scale(${(1.04-beat*.04*k).toFixed(4)})`; }
+  DREAD.beatT-=dt; if(k>.35&&DREAD.beatT<=0&&s>.95){ DREAD.beatT=.5/rate; SFX.heart&&SFX.heart(); }
+  P.dreadSlow=1-.42*k;            // up to 42% slower when it's right on top of you
+  if(k>.6&&MOT.sprint) MOT.stamina=Math.max(0,MOT.stamina-dt*22);   // and the panic eats your breath
+}
 
 // ---------------- model packs: Cold War guns (viewmodels + pickups), PSX sea horror monsters, the elk demon ----------------
 const ASSET={guns:{},mon:{},elk:null,ready:false};
@@ -4999,7 +5017,7 @@ function startLevel(L){
   buildWbar(); AU.humTgt=.05; SFX.sting(); flashPower=1;
   if(bossFor(L)) setTimeout(()=>msg('SOMETHING LARGE IS GUARDING THE KEYCARD','#ff6b6b'),2200);
   if(L>META.best.level){ META.best.level=L; saveMeta(); }
-  lastT=performance.now(); timeScale=1; slowT=0; hitStop=0; cancelReload(); P.rcl=0; camReset(); resetSprings(); P.tlT=7; HUDC.objLast=null;
+  lastT=performance.now(); timeScale=1; slowT=0; hitStop=0; cancelReload(); P.rcl=0; camReset(); resetSprings(); DREAD.k=0; P.dreadSlow=1; P.tlT=7; HUDC.objLast=null;
   const fd=$('fx-fade'); fd.style.transition='none'; fd.style.opacity=1; requestAnimationFrame(()=>{ fd.style.transition='opacity 1.6s ease-out'; fd.style.opacity=0; });
   if(isTouch&&!META.tut&&L===RUN.startCh*3) showTut();
   if(L===RUN.startCh*3) showKeysAtStart();
@@ -5102,7 +5120,7 @@ function updatePlay(dt){
   updateLights(dt);
   LV.eventT-=dt; if(LV.eventT<=0&&P.alive){ LV.eventT=(R(38,70)-Math.min(15,LV.L))*(LV.anom==='hum'?.45:1); horrorEvent(); }
   if(P.alive&&P.hp<P.maxHp*.3){ P.heartT-=dt; if(P.heartT<=0){ P.heartT=.9; SFX.heart(); } }
-  PS.update(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
+  PS.update(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updDread(dt); updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
   updateVM(dt,Math.min(1.3,mf)); placeAimDot();
   revealT-=dt; if(revealT<=0){ revealT=.25; revealMap(); if(mapOn) drawMap(); }
   updateHUD(dt);
