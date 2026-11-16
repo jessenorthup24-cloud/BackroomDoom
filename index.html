@@ -1955,7 +1955,7 @@ function spawnEnemy(type,i,j,aware,affix){
 }
 function alertEnemy(e){
   if(e.dead) return; e.hunt=true; e.searching=false; e.seenT=0; e.lkx=P.x; e.lkz=P.z;
-  if(e.aware) return; e.aware=true; e.cd=Math.max(e.cd,.4); vox(e,e.boss?'roar':'alert');
+  if(e.aware) return; e.aware=true; recSpot(e); e.cd=Math.max(e.cd,.4); vox(e,e.boss?'roar':'alert');
   if(e.mimic){ revealMimic(e); }
   else if(e.lurk){ e.ambush=false; e.cd=1.1; P.shake=Math.max(P.shake,2); }
   else if(e.ambush){ e.ambush=false; e.burstT=1.4; e.cd=0; P.shake=Math.max(P.shake,1.5); }
@@ -2772,7 +2772,9 @@ function updateMotion(dt){
   if(IN.keys.ArrowLeft) P.yaw+=1.9*dt; if(IN.keys.ArrowRight) P.yaw-=1.9*dt;
   if(IN.tmx||IN.tmz){ mx=IN.tmx; mz=IN.tmz; }
   let ml=Math.hypot(mx,mz); if(ml>1){ mx/=ml; mz/=ml; ml=1; }
-  if(!P.alive||P.healT>0||P.doorWork){ mx=mz=0; ml=0; }
+  // walking off breaks off a medkit or pulls the light out of the charger
+  if(P.alive&&ml>.3){ if(P.healT>0&&P.healMax-P.healT>.4){ P.healT=0; P.healPh=0; msg('STOPPED — MEDKIT KEPT','#cfc6a8'); } if(P.plugged&&(P.plugT||0)>.5) unplug('manual'); }
+  if(!P.alive||P.healT>0||P.doorWork||P.plugged){ mx=mz=0; ml=0; }
   // aim down sights: on request, and automatically while shooting
   P.adsHoldT=Math.max(0,(P.adsHoldT||0)-dt);
   const adsWant=(IN.ads||P.adsHoldT>0)&&P.alive&&!WEAPONS[P.weapon].melee&&P.sprintPose<.3&&P.kickT<=0&&P.reloadT<=0;
@@ -3989,7 +3991,7 @@ function plugAction(){
   const s=nearStation(); if(!s) return;
   if(s.charge<=0){ msg('THIS STATION IS DEAD','#ff8a8a'); SFX.click(); return; }
   if(P.battery>=99.5){ msg('ALREADY FULL','#cfc6a8'); return; }
-  P.plugged=s; P.lightWas=P.light; P.light=false; P.plugT=0; cancelReload(); IN.ads=false; SFX.plugIn(); SFX.click(); msg(isTouch?'LOCKED IN — CHARGING IN THE DARK · TAP UNPLUG TO MOVE':'LOCKED IN — CHARGING IN THE DARK · [G] TO UNPLUG','#9dffb0');
+  P.plugged=s; P.lightWas=P.light; P.light=false; P.plugT=0; cancelReload(); IN.ads=false; SFX.plugIn(); SFX.click(); msg(isTouch?'LOCKED IN — CHARGING IN THE DARK · MOVE TO UNPLUG':'LOCKED IN — CHARGING IN THE DARK · MOVE TO UNPLUG','#9dffb0');
 }
 function unplug(why){ const s=P.plugged; if(!s) return; P.plugged=null; if(s.dock) s.dock.visible=false; P.unplugT=.45; P.light=true; SFX.click(); tone({type:'square',f0:700,dur:.02,vol:.08,lp:3000});
   if(why==='full') msg('FLASHLIGHT FULLY CHARGED','#9dffb0'); else if(why==='dead') msg('STATION DRAINED — UNPLUGGED','#ff8a8a'); else if(why==='moved') msg('UNPLUGGED','#cfc6a8'); }
@@ -4926,6 +4928,11 @@ function animVM(dt){
   if(!ANIM.ready) return; const w=VM.list[P.weapon];
   if(w) animReload(w);
   const alive=P.alive&&state!=='title';
+  // hands are needed: the melee weapon goes down out of the way first, and comes back up after
+  { const busy=alive&&(P.healT>0||!!P.plugged||P.unplugT>0||!!P.doorWork||ANIM.pushT>0), melee=w&&WEAPONS[P.weapon].melee;
+    ANIM.stow=damp(ANIM.stow||0,busy?1:0,busy?16:9,dt);
+    if(busy&&melee){ VM.sw=Math.max(VM.sw,.5); if(typeof MS!=='undefined'&&MS.t<MS.dur){ MS.t=9; MS.cur=[0,0,0,0,0,0]; } }
+    if(w&&melee&&ANIM.stow>.01){ const k=ANIM.stow; w.g.position.y-=.95*k; w.g.position.x+=.12*k; w.g.rotation.x+=.7*k; w.g.rotation.z-=.5*k; } }
   // medkit
   const healing=alive&&P.healT>0, hp=healing?1-P.healT/P.healMax:0; ANIM.healK=damp(ANIM.healK,healing?1:0,healing?9:6,dt);
   const md=ANIM.med; md.g.visible=ANIM.healK>.02;
@@ -5456,6 +5463,60 @@ function meleeTrail(w,dt){
   T.g.attributes.position.needsUpdate=true; T.g.attributes.a.needsUpdate=true; T.mesh.visible=n>1;
 }
 
+// ---------------- recorded sound: CC0 drones under the synth ambience, and big hits for the moments that matter ----------------
+// drones: "Ambience SFX Free" by foodforfaeries (CC0). hits and drops: "SFX Kit" by Wyzowl (CC0).
+const RSND={raw:{},buf:{},pending:{},lay:null,spotT:0,farT:40,rumT:0,
+  files:{drone_a:30,drone_b:36,drone_c:34,hit_metal:0,hit_slam:0,hit_drum:0,far_slam:0,far_metal:0,sub_drop:0,boom_drop:0,rumble:0}};
+function recLoad(){
+  const js=AEXT==='.js';
+  for(const n in RSND.files){ const url='assets/audio/'+n+(js?'.js':'.mp3');
+    if(js){ const sc=document.createElement('script'); sc.src=url; sc.onerror=()=>{};
+      sc.onload=()=>{ const b64=(window.__GLB||{})[url]; if(!b64) return; const bin=atob(b64), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); delete window.__GLB[url]; sc.remove(); RSND.raw[n]=u8.buffer; };
+      document.head.appendChild(sc); }
+    else fetch(url).then(r=>r.ok?r.arrayBuffer():null).then(b=>{ if(b) RSND.raw[n]=b; }).catch(()=>{}); }
+}
+function recDecode(){
+  for(const n in RSND.raw){ if(RSND.pending[n]) continue; RSND.pending[n]=1; const ab=RSND.raw[n]; delete RSND.raw[n];
+    try{ const p=AU.ctx.decodeAudioData(ab,b=>{ RSND.buf[n]=b; },()=>{}); if(p&&p.catch) p.catch(()=>{}); }catch(e){} }
+}
+// three loops, pitched well down: a steady bed, a second voice that comes in the deeper you go, and one that swells when something is close
+function recLayers(){
+  const B=RSND.buf; if(RSND.lay||!B.drone_a||!B.drone_b||!B.drone_c) return;
+  const mk=(n,rate,lp)=>{ const s=AU.ctx.createBufferSource(); s.buffer=B[n]; s.loop=true; s.loopStart=.3; s.loopEnd=.3+RSND.files[n]; s.playbackRate.value=rate;
+    const f=filtN('lowpass',lp), g=gainN(0); s.connect(f); f.connect(g); g.connect(AU.mus); if(AU.verb){ const w=gainN(.35); g.connect(w); w.connect(AU.verb); } s.start(0,.3+Math.random()*RSND.files[n]*.8); return {s,g,f}; };
+  RSND.lay={bed:mk('drone_a',.5,700),deep:mk('drone_b',.5,900),tense:mk('drone_c',.7,1200)};
+}
+function recPlay(n,o){
+  o=o||{}; const b=RSND.buf[n]; if(!AU.on||!b) return false;
+  const s=AU.ctx.createBufferSource(); s.buffer=b; s.playbackRate.value=o.rate||1; let head=o.pos?dest(o.pos,o.vol||1):gainN(o.vol||1); if(!o.pos){ head.connect(AU.sfx); if(AU.verb){ const w=gainN(.5); head.connect(w); w.connect(AU.verb); } }
+  if(o.lp){ const f=filtN('lowpass',o.lp); s.connect(f); f.connect(head); } else s.connect(head);
+  s.start(AU.ctx.currentTime+(o.at||0)); return true;
+}
+// something has seen you
+function recSpot(e){
+  if(!AU.on||state!=='play'||!LV||LV.t<2.5) return;
+  if(e.boss){ recPlay('boom_drop',{vol:.8,rate:.85}); RSND.spotT=10; return; }
+  if(RSND.spotT>0) return; RSND.spotT=R(11,18);
+  recPlay(pick(['hit_metal','hit_slam','hit_drum']),{vol:.42,rate:R(.72,.9),lp:2600});
+}
+function recLevel(){ recPlay('sub_drop',{vol:.55,rate:.8,at:.2}); RSND.farT=R(20,40); RSND.spotT=3; }
+function updRec(dt){
+  if(!AU.on) return; recDecode(); recLayers();
+  const play=state==='play'&&LV, t=AU.ctx.currentTime, L=RSND.lay;
+  if(L){ const th=play?clamp((11-(LV.threat==null?99:LV.threat))/9,0,1):0, dr=play&&typeof DREAD!=='undefined'?DREAD.k:0, deep=play?clamp(((LV.L||1)-1)/8,0,1):0, dark=play&&LV.blackT>0?1:0;
+    L.bed.g.gain.setTargetAtTime(play?.5:state==='title'?.38:.2,t,1.5);
+    L.deep.g.gain.setTargetAtTime(play?.1+.3*deep+.2*dark:.12,t,2.5);
+    L.tense.g.gain.setTargetAtTime(Math.min(.75,th*.45+dr*.5+dark*.15),t,th>0?.8:2.5);
+    L.tense.s.playbackRate.setTargetAtTime(.7+.12*dr,t,1.5); }
+  if(!play) return;
+  RSND.spotT-=dt;
+  // far off, in rooms you haven't reached, something heavy shuts
+  const quiet=(LV.threat==null||LV.threat>20);
+  if(quiet){ RSND.farT-=dt; if(RSND.farT<=0){ RSND.farT=R(38,85); const a=R(0,TAU), d=R(16,26); recPlay(rand()<.6?'far_slam':'far_metal',{pos:{x:P.x+Math.cos(a)*d,z:P.z+Math.sin(a)*d},vol:1.5,rate:R(.55,.8),lp:900}); } }
+  // the elk demon close by: the floor carries it
+  if(typeof DREAD!=='undefined'&&DREAD.k>.35){ RSND.rumT-=dt; if(RSND.rumT<=0){ RSND.rumT=R(4,6.5); recPlay('rumble',{vol:.35+.4*DREAD.k,rate:R(.7,.85)}); } } else RSND.rumT=Math.min(RSND.rumT,1);
+}
+
 // ---------------- campaign ----------------------------------------------
 const CHAPTERS=[
   {nm:'THE LOBBY',boss:'attendant',intro:"Work order #4471: persistent fluorescent hum, sublevel B. You leaned on a wall to sign the ticket. The wall didn't hold. Now there's damp carpet as far as the light reaches — and something is walking toward the sound of your footsteps."},
@@ -5813,7 +5874,7 @@ function showScreen(id){ if(id!=='sDead') stopReplay(); for(const s of SCREENS) 
 function exitPointer(){ if(document.pointerLockElement){ IN.ignoreUnlock=true; try{ document.exitPointerLock(); }catch(e){} } }
 function startLevel(L){
   CUR_ANOM=RUN.anom||'quiet'; RUN.L=L; P.alive=true; P.deadT=0;
-  buildLevel(L,false); buildDoors(); decorateRooms(); placeLockers(); scatterDecor(); placeLurkers(); placeMelee(); if(!P.melee) equipMelee('pipe'); stalkerSetup(L); P.bleed=[]; spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
+  buildLevel(L,false); buildDoors(); decorateRooms(); placeLockers(); scatterDecor(); placeLurkers(); placeMelee(); if(!P.melee) equipMelee('pipe'); recLevel(); stalkerSetup(L); P.bleed=[]; spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
   state='play'; showScreen(null); $('hud').classList.remove('hidden'); if(isTouch) $('touch').classList.remove('hidden');
   mapOn=false; mapC.classList.add('hidden'); $('tape').classList.add('hidden');
   $('lvl').textContent=`${levelName(L)} · ${LV.th.name}`;
@@ -5974,7 +6035,7 @@ function frame(now){
   }
   else if(state==='title') updateAttract(dt);
   else if(state==='transition'){ updateLights(dt); PS.update(dt); FIRE.update(dt); MIST.update(dt); updBeams(dt); }
-  audioUpdate(dt);
+  audioUpdate(dt); updRec(dt);
   renderFrame(state==='play'||state==='transition'||state==='read'); recordFrame(dt); perfTrack(rawMs);
 }
 let baseFov=70;
@@ -6000,6 +6061,7 @@ function boot(){
   requestAnimationFrame(frame);
 }
 function boot0(){ try{ boot(); }catch(err){ $('load').textContent='FAILED TO START: '+err.message; console.error(err); } }
+recLoad();
 loadAssets(p=>{ const l=$('load'); if(l) l.textContent='LOADING THE HUM… '+p+'%'; }).then(boot0,boot0);
 
 function updCtx(){
