@@ -5227,16 +5227,16 @@ EDEF.wrapper={name:'THE WRAPPER',hp:190,speed:1.25,r:.34,h:1.8,ar:1,hy0:0,hy1:1.
 
 // ---------------- melee: found weapons that wear out, each swung its own way; blades take limbs, blunt things crush ----------------
 const MELEE={
-  pipe:    {moves:['diag','slashL','over'],name:'LEAD PIPE',   short:'PIPE', kind:'blunt', style:'smash',dmg:45, rate:.62,range:1.9,arc:.55,hits:1,knock:5, sever:.04,dur:0},
-  knife:   {moves:['thrust','slashR','thrust','slashL'],name:'COMBAT KNIFE',short:'KNIFE',kind:'blade', style:'stab', dmg:40, rate:.34,range:1.55,arc:.72,hits:1,knock:1, sever:.18,dur:70,bleed:1},
-  machete: {moves:['slashR','slashL','diag','over'],name:'MACHETE',     short:'MACH', kind:'blade', style:'slash',dmg:64, rate:.52,range:2.05,arc:.3, hits:2,knock:2, sever:.5, dur:45,bleed:1},
-  cleaver: {moves:['over','diag','over','slashL'],name:'BUTCHER CLEAVER',short:'CLVR',kind:'blade',style:'chop',dmg:72,rate:.56,range:1.75,arc:.45,hits:1,knock:2,sever:.62,dur:40,bleed:1},
-  tomahawk:{moves:['over','diagL','slashR'],name:'TOMAHAWK',    short:'HAWK', kind:'blade', style:'chop', dmg:78, rate:.6, range:1.95,arc:.42,hits:1,knock:3, sever:.55,dur:42},
-  axe:     {two:1,moves:['over','slashR','upper'],name:'FIRE AXE',    short:'AXE',  kind:'heavy', style:'chop', dmg:125,rate:.95,range:2.3, arc:.34,hits:2,knock:6, sever:.92,dur:32},
-  katana:  {two:1,moves:['slashR','slashL','diag','upper','thrust'],name:'KATANA',      short:'KTNA', kind:'blade', style:'slash',dmg:88, rate:.55,range:2.55,arc:.18,hits:3,knock:2, sever:.78,dur:38,bleed:1},
+  pipe:    {moves:['slashR','slashL','over'],name:'LEAD PIPE',   short:'PIPE', kind:'blunt', style:'smash',dmg:45, rate:.62,range:1.9,arc:.55,hits:1,knock:5, sever:.04,dur:0},
+  knife:   {moves:['slashR','slashL','thrust'],name:'COMBAT KNIFE',short:'KNIFE',kind:'blade', style:'stab', dmg:40, rate:.34,range:1.55,arc:.72,hits:1,knock:1, sever:.18,dur:70,bleed:1},
+  machete: {moves:['slashR','slashL','diag','slashL'],name:'MACHETE',     short:'MACH', kind:'blade', style:'slash',dmg:64, rate:.52,range:2.05,arc:.3, hits:2,knock:2, sever:.5, dur:45,bleed:1},
+  cleaver: {moves:['slashR','slashL','over'],name:'BUTCHER CLEAVER',short:'CLVR',kind:'blade',style:'chop',dmg:72,rate:.56,range:1.75,arc:.45,hits:1,knock:2,sever:.62,dur:40,bleed:1},
+  tomahawk:{moves:['slashR','slashL','over'],name:'TOMAHAWK',    short:'HAWK', kind:'blade', style:'chop', dmg:78, rate:.6, range:1.95,arc:.42,hits:1,knock:3, sever:.55,dur:42},
+  axe:     {two:1,moves:['slashR','slashL','over'],name:'FIRE AXE',    short:'AXE',  kind:'heavy', style:'chop', dmg:125,rate:.95,range:2.3, arc:.34,hits:2,knock:6, sever:.92,dur:32},
+  katana:  {two:1,moves:['slashR','slashL','diag','slashL','thrust'],name:'KATANA',      short:'KTNA', kind:'blade', style:'slash',dmg:88, rate:.55,range:2.55,arc:.18,hits:3,knock:2, sever:.78,dur:38,bleed:1},
   bat:     {two:1,moves:['slashR','slashL','over'],name:'NAIL BAT',    short:'BAT',  kind:'blunt', style:'slash',dmg:72, rate:.72,range:2.25,arc:.28,hits:2,knock:9, sever:.08,dur:36,bleed:1},
-  wrench:  {moves:['diag','slashL','over'],name:'PIPE WRENCH', short:'WRCH', kind:'blunt', style:'smash',dmg:56, rate:.56,range:1.85,arc:.5, hits:1,knock:6, sever:.03,dur:55},
-  hammer:  {moves:['over','diag','over'],name:'CLAW HAMMER', short:'HMR',  kind:'blunt', style:'smash',dmg:64, rate:.6, range:1.7, arc:.55,hits:1,knock:5, sever:.06,dur:48},
+  wrench:  {moves:['slashR','slashL','over'],name:'PIPE WRENCH', short:'WRCH', kind:'blunt', style:'smash',dmg:56, rate:.56,range:1.85,arc:.5, hits:1,knock:6, sever:.03,dur:55},
+  hammer:  {moves:['slashR','slashL','over'],name:'CLAW HAMMER', short:'HMR',  kind:'blunt', style:'smash',dmg:64, rate:.6, range:1.7, arc:.55,hits:1,knock:5, sever:.06,dur:48},
 };
 const MELEE_TIER=[['knife','wrench','hammer','machete','cleaver'],['knife','machete','cleaver','tomahawk','bat','hammer'],['tomahawk','bat','axe','katana','machete']];
 const MS={t:9,dur:1,hit:false,side:1,style:'smash'};
@@ -5263,10 +5263,10 @@ function buildMeleeVM(id){
 // ---- swing poses: [t, px,py,pz,rx,ry,rz] added to the held pose. rest -> wind-up -> impact -> follow-through -> rest
 // The curve runs through the keys without stopping at them, so the weapon is at full speed when it lands.
 const SWING={
-  slash:s=>[[0,0,0,0,0,0,0],[.13,.16*s,.09,-.02,.4,.9*s,-1.2*s],[.23,-.25*s,-.03,-.1,-.25,-1.05*s,-1.35*s],[.4,-.32*s,-.14,-.04,-.45,-1.25*s,-1.15*s],[1,0,0,0,0,0,0]],
+  slash:s=>[[0,0,0,0,0,0,0],[.13,.2*s,.07,.02,.1,-.75*s,-1.4*s],[.23,-.1*s,.06,-.14,0,.8*s,-1.45*s],[.4,-.34*s,.02,-.06,-.05,1.9*s,-1.45*s],[1,0,0,0,0,0,0]],
   chop: s=>[[0,0,0,0,0,0,0],[.13,.02,.16,0,1.15,0,-.2],[.23,-.02,-.09,-.1,-1.4,0,-.12],[.4,-.03,-.15,-.06,-1.55,0,-.1],[1,0,0,0,0,0,0]],
   stab: s=>[[0,0,0,0,0,0,0],[.12,.03,-.02,.12,-.3,0,0],[.22,-.05,.02,-.26,-1.35,0,.1*s],[.38,-.04,.01,-.22,-1.3,0,0],[1,0,0,0,0,0,0]],
-  smash:s=>[[0,0,0,0,0,0,0],[.13,.12*s,.13,0,.95,.35*s,-.65*s],[.23,-.12*s,-.08,-.08,-1.25,-.3*s,.25*s],[.4,-.15*s,-.14,-.05,-1.4,-.35*s,.2*s],[1,0,0,0,0,0,0]],
+  smash:s=>[[0,0,0,0,0,0,0],[.13,.16*s,.14,0,.7,-.45*s,-.75*s],[.23,-.1*s,-.04,-.1,-.6,.6*s,-.85*s],[.4,-.24*s,-.14,-.05,-.9,1.3*s,-.8*s],[1,0,0,0,0,0,0]],
   upper:s=>[[0,0,0,0,0,0,0],[.13,-.08*s,-.17,-.02,-1.0,.4*s,.8*s],[.23,.16*s,.12,-.1,1.15,-.3*s,-.5*s],[.4,.18*s,.18,-.06,1.3,-.35*s,-.45*s],[1,0,0,0,0,0,0]],
 };
 const IMPACT={slash:.23,chop:.23,stab:.22,smash:.23,upper:.23};
@@ -5289,6 +5289,8 @@ function meleeStart(){
   MS.pose=MV[0]; MS.style=MV[0]==='upper'?'slash':MV[0]; MS.side=MV[1]; MS.two=!!m.two;
   const fr=SWING[MS.pose](MS.side).map(f=>f.slice()), rs=(m.two?1.15:1);
   for(const f of fr){ for(let k=4;k<7;k++) f[k]*=rs; if(m.two) f[1]*=.8; } if(MS.fin){ for(let k=1;k<7;k++) fr[1][k]*=1.22; }
+  // lay the blade properly flat for a horizontal cut, whatever angle this weapon is held at
+  if(MS.pose==='slash'){ const w0=VM.list[0], tz=w0&&w0.piv?w0.piv.rotation.z:0; for(let q=1;q<4;q++){ fr[q][6]=-1.45*MS.side-tz; fr[q][2]+=.09; } }
   // start from wherever the last swing left the weapon, so one cut flows into the next
   fr[0]=[0].concat(MS.cur); MS.fr=fr; MS.t=0; MS.dur=m.rate*1.6*slowK; MS.hit=false; MS.wh=false; MS.drag=0;
   P.fireCd=m.rate*slowK/UP.rate; hearNoise(P.x,P.z,5);
@@ -5325,18 +5327,18 @@ function meleeStain(){ const w=VM.list[0]; if(!w||!w.model) return; const gk=Mat
 // ---- the hit
 function meleeStrike(){
   if(!LV||!P.alive) return; const m=MELEE[P.melee], fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw), heavy=m.kind==='heavy', blade=m.kind!=='blunt';
-  const cands=[];
+  const hz=MS.pose==='slash', cands=[];
   for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const dx=e.x-P.x, dz=e.z-P.z, l=Math.hypot(dx,dz), d=l-e.d.r*e.scale; if(d>m.range) continue;
-    if(l>.05&&(dx*fx+dz*fz)/l<m.arc) continue; if(e.ceil&&P.pitch<.25) continue; if(!los(P.x,P.z,e.x,e.z)) continue; cands.push([e,d,l]); }
+    if(l>.05&&(dx*fx+dz*fz)/l<(hz?Math.min(m.arc-.25,.2):m.arc)) continue; if(e.ceil&&P.pitch<.25) continue; if(!los(P.x,P.z,e.x,e.z)) continue; cands.push([e,d,l]); }
   cands.sort((a,b)=>a[1]-b[1]);
   let landed=0, killed=0; MS.cut=0;
-  for(const [e,d,l] of cands.slice(0,m.hits)){
+  for(const [e,d,l] of cands.slice(0,m.hits+(hz?1:0))){
     const nx=(e.x-P.x)/(l||1), nz=(e.z-P.z)/(l||1), sc=e.scale*(e.rig&&e.rig.sc?1:1);
     let hy=clamp(camPos.y+Math.tan(P.pitch)*l-e.y,(e.d.hy0||0)*sc+.1,e.d.hy1*sc-.05); const head=hy>=e.d.head[0]*sc;
     const hx=e.x-nx*e.d.r*.8, hz=e.z-nz*e.d.r*.8, Y=e.y+hy;
     // stabbing something that isn't facing you goes deep
     let back=false; if(m.style==='stab'&&e.rig){ const fxE=Math.sin(e.rig.yaw), fzE=Math.cos(e.rig.yaw); back=(fxE*nx+fzE*nz)>.3; }
-    const fin=MS.fin, dmg=m.dmg*R(.9,1.1)*(head?1.5:1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1);
+    const fin=MS.fin, dmg=m.dmg*R(.9,1.1)*(head?1.5:1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1)*(hz?1.3:1);
     // they go the way the weapon was going: sideways off a slash, buckled under a chop, lifted by a rising cut
     const lethal=e.hp<=dmg*(head?2.1:1), movable=!e.boss&&!e.stalker&&!e.steady, kn=m.knock*(e.d.mass<1.5?1:.6)*(fin?1.7:1)*(lethal?1.8:1);
     if(movable&&MS.pose==='slash'){ const lat=(3+kn*.9)/e.d.mass; e.kvx+=-nz*MS.side*lat; e.kvz+=nx*MS.side*lat; }
@@ -5357,7 +5359,7 @@ function meleeStrike(){
     meleeSlow(MS.cut?.2:killed?.12:big?.07:.045,MS.cut?.2:killed?.3:.4);
     P.shake=Math.max(P.shake,big?4.4:2.8); P.camKickV+=(MS.pose==='upper'?-1:1)*(big?2.4:1.4); P.camRollV+=-MS.side*(MS.pose==='slash'?1:.3)*(big?.9:.5); MOT.spv-=heavy?.6:.35; buzz(big?[25,20,45]:30); meleeStain();
     if(fin||killed){ P.fov=Math.max(P.fov||0,fin&&killed?3:1.8); }
-    if(m.dur&&cands.length){ P.meleeDur-=Math.min(cands.length,m.hits); if(P.meleeDur<=0) meleeBreak(); } }
+    if(m.dur&&cands.length){ P.meleeDur-=Math.min(cands.length,m.hits,2); if(P.meleeDur<=0) meleeBreak(); } }
   else { const wh=rayWall(P.x,P.z,fx,fz,m.range); if(wh.ix>=0){ const x=P.x+fx*wh.t, z=P.z+fz*wh.t; sparks(x,1.1,z,wh.nx,wh.nz,blade?10:5); SFX.pipeHit({x,z}); P.shake=Math.max(P.shake,1.4); hitStop=Math.max(hitStop,.03); } }
 }
 function meleeFx(e,x,y,z,nx,nz,m,head,blade){
