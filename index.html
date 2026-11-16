@@ -230,6 +230,18 @@ body.touch .tb,body.touch #tipL,body.touch #tipR,body.touch #bMap{display:none!i
 #ctxRow{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(64px + var(--sb));display:flex;gap:10px;z-index:6}
 .ctx{pointer-events:auto;font-family:'VT323',monospace;font-size:18px;letter-spacing:1px;color:#f2e6c0;background:rgba(10,8,4,.55);border:1px solid rgba(242,230,192,.35);padding:7px 14px;border-radius:3px}
 .ctx.hidden{display:none}
+#reader{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);pointer-events:auto}
+#reader.hidden{display:none}
+#readCard{width:min(600px,84vw);max-height:78vh;overflow:auto;padding:16px 20px 12px;font-family:'VT323',monospace;box-shadow:0 10px 40px rgba(0,0,0,.7)}
+#reader.tape #readCard{background:rgba(10,8,4,.94);border:1px solid rgba(255,107,91,.55);border-left:5px solid #ff6b5b}
+#reader.tape #readHead{color:#ff8a7a;font-size:17px;letter-spacing:2px}
+#reader.tape #readTxt{color:#f2ead8}
+#reader.note #readCard{background:#e6dfc8;color:#2a2418;rotate:-1deg}
+#reader.note #readHead{color:#7a6a4a;font-size:15px;letter-spacing:2px}
+#readTxt{font-size:22px;line-height:1.2;margin:8px 0 10px;min-height:2.4em;white-space:pre-wrap}
+#readHint{font-size:14px;letter-spacing:2px;opacity:.6;text-align:right;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (max-height:420px){ #readTxt{font-size:18px} }
 #noteBox{position:absolute;left:50%;top:22%;transform:translateX(-50%);width:min(78vw,520px);background:rgba(232,226,204,.93);color:#2a2418;padding:14px 18px;font-family:'VT323',monospace;font-size:21px;line-height:1.15;box-shadow:0 6px 30px rgba(0,0,0,.6);pointer-events:auto;z-index:7;transform-origin:center;rotate:-1deg}
 #noteBox small{display:block;font-size:13px;color:#7a6a4a;margin-bottom:6px;letter-spacing:2px}
 #noteBox.hidden{display:none}
@@ -289,6 +301,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
   <div id="br"><div><span id="ammoV">60</span><span id="ammoR"></span></div><div id="wname">P9 PISTOL</div><div id="ammoAll"></div></div>
   <div id="wbar"></div>
   <div id="ctxRow"><button id="ctxB" class="ctx hidden">CLOSE DOOR</button><button id="ctxB2" class="ctx hidden">BARRICADE</button></div>
+  <div id="reader" class="hidden"><div id="readCard"><div id="readHead"></div><div id="readTxt"></div><div id="readHint">TAP TO SKIP</div></div></div>
   <div id="noteBox" class="hidden"><small>FOUND NOTE · TAP TO CLOSE</small><p></p></div>
 </div>
 <div id="touch" class="hidden">
@@ -3491,7 +3504,7 @@ const NOTES=[
   'Counted the doors on this floor twice. Got different numbers both times.',
 ];
 function noteTex(){ return rtex('note',32,32,(x)=>{ x.fillStyle='#e8e2cc'; x.fillRect(6,3,20,26); x.fillStyle='#8a8470'; for(let i=0;i<7;i++) x.fillRect(8,6+i*3,R(10,16),1); x.fillStyle='rgba(120,10,10,.6)'; x.fillRect(18,20,5,4); }); }
-function showNote(txt){ const n=$('noteBox'); if(!n) return; n.querySelector('p').textContent=txt; n.classList.remove('hidden'); P.noteT=9; SFX.tape&&SFX.tape(); }
+function showNote(txt){ openReader('note','FOUND NOTE · UNIT 4471',txt); }
 function roomDecal(k,x,y,z,nx,ny,nz,s){ addDecal(k,x,y,z,nx,ny,nz,s,true); }
 function decorateRooms(){
   if(!ART.paper) ART.paper=rtex('paperdec',32,32,(x)=>{ x.fillStyle='#d8d2bc'; x.fillRect(6,4,20,25); x.fillStyle='#7a7462'; for(let i=0;i<7;i++) x.fillRect(8,7+i*3,R(8,16),1); });
@@ -3822,6 +3835,32 @@ function perfTrack(rawMs){
   PERF.avg=PERF.avg*.95+Math.min(rawMs,60)*.05; PERF.t+=rawMs/1000; if(PERF.t<2) return; PERF.t=0;
   let s=PERF.scale; if(PERF.avg>24&&s>.55) s=Math.max(.55,s-.1); else if(PERF.avg<15&&s<1) s=Math.min(1,s+.05);
   if(s!==PERF.scale){ PERF.scale=s; resize(); }
+}
+// ---- reading tapes and notes freezes the game; tap once to finish the text, again to continue
+const READ={open:false,full:'',shown:0,timer:0,hiss:null};
+function openReader(kind,head,txt){
+  if(READ.open) closeReader(true);
+  const r=$('reader'); r.className=kind; $('readHead').textContent=head; $('readTxt').textContent=''; $('readHint').textContent='TAP TO SKIP';
+  r.classList.remove('hidden'); READ.open=true; READ.full=txt; READ.shown=0; READ.kind=kind;
+  if(state==='play'){ READ.prev='play'; state='read'; clearInput(); exitPointer&&exitPointer(); closePicker&&closePicker(); }
+  SFX.tape&&SFX.tape();
+  if(AU.on){ const t=aT(); AU.amb.gain.cancelScheduledValues(t); AU.amb.gain.setTargetAtTime(.3,t,.2);
+    if(kind==='tape'){ const n=noiseN(), b=filtN('bandpass',3200,.6), g=gainN(0); n.connect(b); b.connect(g); g.connect(AU.sfx); g.gain.setTargetAtTime(.035,t,.3); n.start(); READ.hiss={n,g}; } }
+  clearInterval(READ.timer);
+  READ.timer=setInterval(()=>{ if(READ.shown>=READ.full.length){ clearInterval(READ.timer); $('readHint').textContent='TAP TO CONTINUE'; return; }
+    READ.shown=Math.min(READ.full.length,READ.shown+2); $('readTxt').textContent=READ.full.slice(0,READ.shown); },28);
+}
+function readerTap(){
+  if(!READ.open) return;
+  if(READ.shown<READ.full.length){ READ.shown=READ.full.length; $('readTxt').textContent=READ.full; clearInterval(READ.timer); $('readHint').textContent='TAP TO CONTINUE'; return; }
+  closeReader();
+}
+function closeReader(quick){
+  clearInterval(READ.timer); READ.open=false; $('reader').classList.add('hidden');
+  if(READ.hiss){ try{ READ.hiss.g.gain.setTargetAtTime(0,aT(),.05); READ.hiss.n.stop(aT()+.3); }catch(e){} READ.hiss=null; }
+  if(AU.on){ const t=aT(); AU.amb.gain.cancelScheduledValues(t); AU.amb.gain.setTargetAtTime(1,t,.4); }
+  if(state==='read'){ state='play'; clearInput(); lastT=performance.now(); }
+  if(!quick) SFX.click&&SFX.click();
 }
 
 // ---------------- the dark: a flashlight that fades, plugging in to charge, wall climbers, furniture that grows legs ----------------
@@ -4160,8 +4199,7 @@ let tapeTimer=0;
 function showTape(L){
   const log=L<CAMPAIGN_LEN?LOGS[L]:['UNKNOWN',pick(FRAGMENTS)];
   if(L<CAMPAIGN_LEN&&!META.logs.includes(L)){ META.logs.push(L); saveMeta(); }
-  $('tapeWho').textContent=`TAPE ${L<CAMPAIGN_LEN?String(L+1).padStart(2,'0'):'??'} · ${log[0]}`; $('tapeTxt').textContent=log[1];
-  const t=$('tape'); t.classList.remove('hidden'); t.classList.remove('out'); clearTimeout(tapeTimer); tapeTimer=setTimeout(()=>t.classList.add('out'),9000); setTimeout(()=>{},0);
+  openReader('tape',`TAPE ${L<CAMPAIGN_LEN?String(L+1).padStart(2,'0'):'??'} · ${log[0]}`,log[1]);
 }
 const WEAPON_TIPS={2:'Close range crowd control.',3:'Two shells, one terrible moment. Kicks you back.',4:'Full-auto. Holds a lot of nails.',5:'Pierces every enemy in a line.',6:'Chain lightning. Barely needs aiming.',7:'Sets everything on fire. Short range.',8:'Explodes and keeps burning. Lights the dark.'};
 function showWeaponTip(i){ if(WEAPON_TIPS[i]) setTimeout(()=>msg(WEAPON_TIPS[i],'#ffd27a'),900); }
@@ -4330,6 +4368,7 @@ function revealMap(){
 const IN={keys:{},fire:false,stick:null,tmx:0,tmz:0};
 addEventListener('keydown',e=>{
   if(e.repeat&&!/Key[WASD]|Arrow/.test(e.code)) return; IN.keys[e.code]=true;
+  if(READ.open){ if(e.code==='Space'||e.code==='Enter'||e.code==='KeyE'||e.code==='Escape'){ e.preventDefault(); readerTap(); } IN.keys[e.code]=false; return; }
   if(state==='play'){
     const m=/^Digit([1-9])$/.exec(e.code); if(m) switchWeapon(+m[1]-1);
     if(e.code==='KeyQ') switchWeapon(P.lastWeapon); if(e.code==='KeyF') toggleLight(); if(e.code==='KeyM'||e.code==='Tab'){ e.preventDefault(); toggleMap(); }
@@ -4369,6 +4408,7 @@ bindBtn('bNext',()=>{ clearTimeout(nextHold); nextHold=setTimeout(()=>{ nextHold
 $('bNext').addEventListener('pointerup',()=>{ if(nextHold!==-1){ clearTimeout(nextHold); if(state==='play'&&!pickOpen) cycleWeapon(1); } nextHold=0; });
 $('ctxB').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); ctxPrimary(); });
 $('ctxB2').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); barricadeAction(); });
+$('reader').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); readerTap(); });
 $('noteBox').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); $('noteBox').classList.add('hidden'); P.noteT=0; });
 $('batt').addEventListener('pointerdown',e=>{ if(state!=='play') return; e.stopPropagation(); e.preventDefault(); if(P.plugged){ plugAction(); return; } toggleLight(); });
 $('bl').addEventListener('pointerdown',e=>{ if(state!=='play') return; e.stopPropagation(); e.preventDefault(); useMedkit(); });
@@ -4576,7 +4616,7 @@ function frame(now){
   else if(state==='title') updateAttract(dt);
   else if(state==='transition'){ updateLights(dt); PS.update(dt); FIRE.update(dt); MIST.update(dt); updBeams(dt); }
   audioUpdate(dt);
-  renderFrame(state==='play'||state==='transition'); recordFrame(dt); perfTrack(rawMs);
+  renderFrame(state==='play'||state==='transition'||state==='read'); recordFrame(dt); perfTrack(rawMs);
 }
 let baseFov=70;
 function resize(){
