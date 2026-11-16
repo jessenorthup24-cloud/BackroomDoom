@@ -5239,10 +5239,10 @@ const MELEE={
   hammer:  {moves:['over','diag','over'],name:'CLAW HAMMER', short:'HMR',  kind:'blunt', style:'smash',dmg:64, rate:.6, range:1.7, arc:.55,hits:1,knock:5, sever:.06,dur:48},
 };
 const MELEE_TIER=[['knife','wrench','hammer','machete','cleaver'],['knife','machete','cleaver','tomahawk','bat','hammer'],['tomahawk','bat','axe','katana','machete']];
-const MS={t:0,dur:1,hit:false,side:1,style:'smash'};
+const MS={t:9,dur:1,hit:false,side:1,style:'smash'};
 function meleeInit(){ P.melee=P.melee||'pipe'; P.meleeDur=P.meleeDur||0; }
 function equipMelee(id,dur){
-  const m=MELEE[id]; if(!m) return; P.melee=id; P.meleeDur=dur!=null?dur:m.dur;
+  const m=MELEE[id]; if(!m) return; P.melee=id; P.meleeGore=0; MS.combo=0; P.meleeDur=dur!=null?dur:m.dur;
   const w=WEAPONS[0]; Object.assign(w,{name:m.name,short:m.short,dmg:m.dmg,rate:m.rate}); AUTO_RANGE.pipe=m.range+.15;
   buildMeleeVM(id); if(typeof buildWbar==='function'&&LV) buildWbar();
 }
@@ -5260,34 +5260,68 @@ function buildMeleeVM(id){
   w.piv=piv; w.parts={}; w.model=model;
   const len=new THREE.Box3().setFromObject(model).max.y; w.mz.position.set(0,len*.8,0);
 }
-// ---- swing poses: [px,py,pz,rx,ry,rz] added to the held pose
-function key6(fr,p){ if(p<=fr[0][0]) return fr[0].slice(1); for(let i=1;i<fr.length;i++){ const f=fr[i],g=fr[i-1]; if(p<=f[0]){ const t=smooth(g[0],f[0],p); return g.slice(1).map((v,k)=>v+(f[k+1]-v)*t); } } return fr[fr.length-1].slice(1); }
+// ---- swing poses: [t, px,py,pz,rx,ry,rz] added to the held pose. rest -> wind-up -> impact -> follow-through -> rest
+// The curve runs through the keys without stopping at them, so the weapon is at full speed when it lands.
 const SWING={
-  slash:s=>[[0,0,0,0,0,0,0],[.22,.13*s,.07,-.04,.35,.75*s,-1.15*s],[.44,-.25*s,-.03,-.1,-.25,-1.05*s,-1.35*s],[.7,-.2*s,-.1,-.02,-.35,-.8*s,-1.0*s],[1,0,0,0,0,0,0]],
-  chop:s=>[[0,0,0,0,0,0,0],[.26,.02,.13,-.02,1.0,0,-.2],[.44,-.02,-.13,-.1,-1.45,0,-.12],[.72,-.02,-.15,-.05,-1.25,0,-.1],[1,0,0,0,0,0,0]],
-  stab:s=>[[0,0,0,0,0,0,0],[.2,.02,-.02,.09,-.25,0,0],[.36,-.05,.02,-.24,-1.35,0,.1*s],[.6,-.03,0,-.18,-1.2,0,0],[1,0,0,0,0,0,0]],
-  smash:s=>[[0,0,0,0,0,0,0],[.24,.1*s,.1,-.02,.85,.3*s,-.6*s],[.44,-.12*s,-.12,-.08,-1.3,-.3*s,.25*s],[.72,-.1*s,-.14,-.04,-1.1,-.2*s,.15*s],[1,0,0,0,0,0,0]],
+  slash:s=>[[0,0,0,0,0,0,0],[.13,.16*s,.09,-.02,.4,.9*s,-1.2*s],[.23,-.25*s,-.03,-.1,-.25,-1.05*s,-1.35*s],[.4,-.32*s,-.14,-.04,-.45,-1.25*s,-1.15*s],[1,0,0,0,0,0,0]],
+  chop: s=>[[0,0,0,0,0,0,0],[.13,.02,.16,0,1.15,0,-.2],[.23,-.02,-.09,-.1,-1.4,0,-.12],[.4,-.03,-.15,-.06,-1.55,0,-.1],[1,0,0,0,0,0,0]],
+  stab: s=>[[0,0,0,0,0,0,0],[.12,.03,-.02,.12,-.3,0,0],[.22,-.05,.02,-.26,-1.35,0,.1*s],[.38,-.04,.01,-.22,-1.3,0,0],[1,0,0,0,0,0,0]],
+  smash:s=>[[0,0,0,0,0,0,0],[.13,.12*s,.13,0,.95,.35*s,-.65*s],[.23,-.12*s,-.08,-.08,-1.25,-.3*s,.25*s],[.4,-.15*s,-.14,-.05,-1.4,-.35*s,.2*s],[1,0,0,0,0,0,0]],
+  upper:s=>[[0,0,0,0,0,0,0],[.13,-.08*s,-.17,-.02,-1.0,.4*s,.8*s],[.23,.16*s,.12,-.1,1.15,-.3*s,-.5*s],[.4,.18*s,.18,-.06,1.3,-.35*s,-.45*s],[1,0,0,0,0,0,0]],
 };
-const IMPACT={slash:.38,chop:.42,stab:.33,smash:.41};
+const IMPACT={slash:.23,chop:.23,stab:.22,smash:.23,upper:.23};
 // named moves -> pose curve, side, and which hit style they deal
 const MOVES={slashR:['slash',1],slashL:['slash',-1],over:['chop',1],diag:['smash',1],diagL:['smash',-1],thrust:['stab',1],upper:['upper',1]};
-SWING.upper=s=>[[0,0,0,0,0,0,0],[.24,-.06*s,-.14,-.02,-.9,.35*s,.75*s],[.45,.16*s,.12,-.1,1.15,-.3*s,-.5*s],[.72,.12*s,.1,-.06,.9,-.2*s,-.35*s],[1,0,0,0,0,0,0]];
-IMPACT.upper=.42;
+function swingAt(fr,p){
+  const n=fr.length; if(p<=fr[0][0]) return fr[0].slice(1); if(p>=fr[n-1][0]) return fr[n-1].slice(1);
+  let i=0; while(i<n-2&&p>fr[i+1][0]) i++;
+  const a=fr[i], b=fr[i+1], h=b[0]-a[0], u=(p-a[0])/h, u2=u*u, u3=u2*u, out=[];
+  for(let k=1;k<7;k++){ const m0=i===0?0:(b[k]-fr[i-1][k])/(b[0]-fr[i-1][0]), m1=i+1===n-1?0:(fr[i+2][k]-a[k])/(fr[i+2][0]-a[0]);
+    out.push((2*u3-3*u2+1)*a[k]+(u3-2*u2+u)*h*m0+(-2*u3+3*u2)*b[k]+(u3-u2)*h*m1); }
+  return out;
+}
+Object.assign(MS,{t:9,cur:[0,0,0,0,0,0],fr:null,drag:0,dragK:1,k:0,kv:0,kq:[0,0,0,0,0,0],slow:0,slowK:1,fin:false,wh:true});
 function meleeStart(){
   const m=MELEE[P.melee], now=LV?LV.t:0; if(now-(MS.last||-9)>m.rate*1.9) MS.combo=0; MS.last=now;
-  const mv=m.moves?m.moves[(MS.combo||0)%m.moves.length]:m.style; MS.combo=(MS.combo||0)+1; const MV=MOVES[mv]||[m.style,-MS.side];
-  MS.t=0; MS.dur=m.rate*(m.two?1.02:.95); MS.hit=false; MS.pose=MV[0]; MS.style=MV[0]==='upper'?'slash':MV[0]; MS.side=MV[1]; MS.two=!!m.two; SFX.whoosh&&SFX.whoosh(m);
-  P.fireCd=m.rate/UP.rate; hearNoise(P.x,P.z,5);
+  const n=m.moves?m.moves.length:1, ci=(MS.combo||0)%n, mv=m.moves?m.moves[ci]:m.style; MS.combo=(MS.combo||0)+1; const MV=MOVES[mv]||[m.style,-MS.side];
+  // the last move of a chain is the finisher: a longer wind-up and a harder hit
+  MS.fin=n>=3&&ci===n-1; const slowK=(m.two?1.1:1)*(MS.fin?1.15:1);
+  MS.pose=MV[0]; MS.style=MV[0]==='upper'?'slash':MV[0]; MS.side=MV[1]; MS.two=!!m.two;
+  const fr=SWING[MS.pose](MS.side).map(f=>f.slice()), rs=(m.two?1.15:1);
+  for(const f of fr){ for(let k=4;k<7;k++) f[k]*=rs; if(m.two) f[1]*=.8; } if(MS.fin){ for(let k=1;k<7;k++) fr[1][k]*=1.22; }
+  // start from wherever the last swing left the weapon, so one cut flows into the next
+  fr[0]=[0].concat(MS.cur); MS.fr=fr; MS.t=0; MS.dur=m.rate*1.6*slowK; MS.hit=false; MS.wh=false; MS.drag=0;
+  P.fireCd=m.rate*slowK/UP.rate; hearNoise(P.x,P.z,5);
+  // step into it: if something is just out of reach, the swing carries you forward
+  if(LV){ const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw); let best=9;
+    for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const dx=e.x-P.x, dz=e.z-P.z, l=Math.hypot(dx,dz); if(l>m.range+1.7||l<.05||(dx*fx+dz*fz)/l<.8) continue; best=Math.min(best,l-e.d.r*e.scale); }
+    const push=best<9?(best>m.range*.7?4.6:best>m.range*.4?1.6:0):(m.two?.9:.5); P.vx+=fx*push; P.vz+=fz*push; }
 }
+function meleeTime(dt){ if(MS.slow>0&&state==='play'){ MS.slow-=dt; return dt*MS.slowK; } return dt; }
+function meleeSlow(t,k){ MS.slow=Math.max(MS.slow,t); MS.slowK=k; }
 function animMeleeVM(w,dt){
   if(!w.piv) return;
-  if(MS.t<MS.dur){ MS.t+=dt; const p=Math.min(1,MS.t/MS.dur), o=key6(SWING[MS.pose||MS.style](MS.side),p); if(MS.two){ for(let k=3;k<6;k++) o[k]*=1.15; o[0]*=.8; }
-    w.g.position.x+=o[0]; w.g.position.y+=o[1]; w.g.position.z+=o[2]; w.g.rotation.x+=o[3]; w.g.rotation.y+=o[4]; w.g.rotation.z+=o[5];
-    // the body turns into it: a little roll and yaw on the camera through the strike
-    if(p>.18&&p<.5){ const k=MS.two?1.5:1, ps=MS.pose||MS.style; MOT.srv+=(ps==='slash'?-MS.side*2.2:ps==='chop'?0:MS.side*1.2)*k*dt*6; MOT.spv+=(ps==='chop'?-1:ps==='upper'?.8:-.2)*k*dt*3; }
-    if(!MS.hit&&p>=IMPACT[MS.pose||MS.style]){ MS.hit=true; meleeStrike(); } }
+  // impact spring: the weapon bounces off bone or jars in the hand
+  MS.kv+=(-230*MS.k-15*MS.kv)*dt; MS.k+=MS.kv*dt; if(!isFinite(MS.k+MS.kv)){ MS.k=MS.kv=0; }
+  let o=MS.cur;
+  if(MS.fr&&MS.t<MS.dur){
+    let adv=dt; if(MS.drag>0){ MS.drag-=dt; adv*=MS.dragK; } // the edge drags while it's in something
+    const p0=MS.t/MS.dur; MS.t+=adv; const p=Math.min(1,MS.t/MS.dur), ps=MS.pose, k=(MS.two?1.5:1)*(MS.fin?1.3:1);
+    o=swingAt(MS.fr,p); MS.cur=o;
+    if(!MS.wh&&p>=.1){ MS.wh=true; SFX.whoosh&&SFX.whoosh(MELEE[P.melee],MS.fin); }
+    // the body goes with it: lean away on the wind-up, roll through the strike
+    const roll=ps==='slash'?-MS.side*2.2:ps==='chop'?0:ps==='upper'?MS.side*1.6:MS.side*1.2, dip=ps==='chop'?-1.2:ps==='upper'?.9:ps==='stab'?-.3:-.4;
+    if(p<.13){ MOT.srv-=roll*.55*k*adv*6; MOT.spv-=dip*.6*k*adv*3; }
+    else if(p<.36){ MOT.srv+=roll*1.25*k*adv*6; MOT.spv+=dip*1.3*k*adv*3; }
+    if(!MS.hit&&p>=IMPACT[ps]){ MS.hit=true; const a=swingAt(MS.fr,Math.max(0,p-.03)), b=swingAt(MS.fr,Math.min(1,p+.03)); let l=0; for(let q=0;q<6;q++){ MS.kq[q]=a[q]-b[q]; l+=MS.kq[q]*MS.kq[q]; } l=Math.sqrt(l)||1; for(let q=0;q<6;q++) MS.kq[q]/=l; meleeStrike(); }
+    if(p>=1) MS.cur=[0,0,0,0,0,0];
+  }
+  const g=w.g, q=MS.kq, K=MS.k;
+  g.position.x+=o[0]+q[0]*K*.25; g.position.y+=o[1]+q[1]*K*.25; g.position.z+=o[2]+q[2]*K*.25; g.rotation.x+=o[3]+q[3]*K; g.rotation.y+=o[4]+q[4]*K; g.rotation.z+=o[5]+q[5]*K;
   meleeTrail(w,dt);
 }
+// blades and bats pick up what they've been through
+function meleeStain(){ const w=VM.list[0]; if(!w||!w.model) return; const gk=Math.min(.7,P.meleeGore||0); w.model.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color) o.material.color.setRGB(1-.4*gk,1-.78*gk,1-.8*gk); }); }
 // ---- the hit
 function meleeStrike(){
   if(!LV||!P.alive) return; const m=MELEE[P.melee], fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw), heavy=m.kind==='heavy', blade=m.kind!=='blunt';
@@ -5295,24 +5329,34 @@ function meleeStrike(){
   for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const dx=e.x-P.x, dz=e.z-P.z, l=Math.hypot(dx,dz), d=l-e.d.r*e.scale; if(d>m.range) continue;
     if(l>.05&&(dx*fx+dz*fz)/l<m.arc) continue; if(e.ceil&&P.pitch<.25) continue; if(!los(P.x,P.z,e.x,e.z)) continue; cands.push([e,d,l]); }
   cands.sort((a,b)=>a[1]-b[1]);
-  let landed=0;
+  let landed=0, killed=0; MS.cut=0;
   for(const [e,d,l] of cands.slice(0,m.hits)){
     const nx=(e.x-P.x)/(l||1), nz=(e.z-P.z)/(l||1), sc=e.scale*(e.rig&&e.rig.sc?1:1);
     let hy=clamp(camPos.y+Math.tan(P.pitch)*l-e.y,(e.d.hy0||0)*sc+.1,e.d.hy1*sc-.05); const head=hy>=e.d.head[0]*sc;
     const hx=e.x-nx*e.d.r*.8, hz=e.z-nz*e.d.r*.8, Y=e.y+hy;
     // stabbing something that isn't facing you goes deep
     let back=false; if(m.style==='stab'&&e.rig){ const fxE=Math.sin(e.rig.yaw), fzE=Math.cos(e.rig.yaw); back=(fxE*nx+fzE*nz)>.3; }
-    const dmg=m.dmg*R(.9,1.1)*(head?1.5:1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1);
+    const fin=MS.fin, dmg=m.dmg*R(.9,1.1)*(head?1.5:1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1);
+    // they go the way the weapon was going: sideways off a slash, buckled under a chop, lifted by a rising cut
+    const lethal=e.hp<=dmg*(head?2.1:1), movable=!e.boss&&!e.stalker&&!e.steady, kn=m.knock*(e.d.mass<1.5?1:.6)*(fin?1.7:1)*(lethal?1.8:1);
+    if(movable&&MS.pose==='slash'){ const lat=(3+kn*.9)/e.d.mass; e.kvx+=-nz*MS.side*lat; e.kvz+=nx*MS.side*lat; }
     e.lastHit={x:hx,y:Y,z:hz,src:blade?'blade':'blunt',head,t:LV.t};
     if(e.rig&&(e.rig.glb||e.rig.elk)) glbHit(e,hx,Y,hz,dmg,blade?'sawed':'shotgun',head); else rigHit&&e.rig&&rigHit(e,hx,Y,hz,dmg,'pipe',head);
-    const hpBefore=e.hp; hurtEnemy(e,dmg,nx,nz,m.knock*(e.d.mass<1.5?1:.6),blade?'blade':'pipe',head); landed++;
+    const hpBefore=e.hp; hurtEnemy(e,dmg,nx,nz,kn*(MS.pose==='slash'?.5:MS.pose==='chop'?.6:1),blade?'blade':'pipe',head); landed++; if(e.dead) killed++;
+    if(!e.dead&&movable){ e.painT=Math.max(e.painT,heavy?.6:blade?.24:.45,fin?.7:0); if(fin||heavy){ e.atkT=0; e.mode=''; e.cd=Math.max(e.cd,.7); } }
+    P.meleeGore=Math.min(1,(P.meleeGore||0)+(blade?.1:.05)); if(l<2&&(blade||fin)) screenBlood(e.dead?.1:.04);
     meleeFx(e,hx,Y,hz,nx,nz,m,head,blade);
     if(!e.boss&&!e.stalker&&e.rig&&e.rig.glb){ meleeSever(e,m,hy/(e.d.hy1*sc),head,blade,heavy,hpBefore); }
     if(m.bleed&&!e.dead){ e.mBleed=Math.max(e.mBleed||0,2.5); }
     if(m.kind==='blunt'&&!e.dead&&!e.boss){ e.painT=Math.max(e.painT,.45); if(!e.steady){ e.atkT=0; e.mode=''; } e.cd=Math.max(e.cd,.6); }
   }
   for(const p of LV.props){ if(!p.alive) continue; const dx=p.x-P.x, dz=p.z-P.z, l=Math.hypot(dx,dz); if(l<m.range+.3&&(dx*fx+dz*fz)/(l||1)>.4){ hitProp(p,m.dmg*.6); landed++; } }
-  if(landed){ hitStop=Math.max(hitStop,heavy?.11:blade?.07:.08); P.shake=Math.max(P.shake,heavy?4:2.6); MOT.spv-=heavy?.6:.35; buzz(heavy?55:30);
+  if(landed){ const fin=MS.fin, big=heavy||fin;
+    // the weapon bites: it slows through flesh, bounces off with something blunt, and time catches for a beat
+    MS.drag=m.style==='stab'||MS.pose==='stab'?.13:heavy?.12:blade?.085:.05; MS.dragK=blade?.14:.3; MS.kv+=blade?(heavy?5:2.6):8.5;
+    meleeSlow(MS.cut?.2:killed?.12:big?.07:.045,MS.cut?.2:killed?.3:.4);
+    P.shake=Math.max(P.shake,big?4.4:2.8); P.camKickV+=(MS.pose==='upper'?-1:1)*(big?2.4:1.4); P.camRollV+=-MS.side*(MS.pose==='slash'?1:.3)*(big?.9:.5); MOT.spv-=heavy?.6:.35; buzz(big?[25,20,45]:30); meleeStain();
+    if(fin||killed){ P.fov=Math.max(P.fov||0,fin&&killed?3:1.8); }
     if(m.dur&&cands.length){ P.meleeDur-=Math.min(cands.length,m.hits); if(P.meleeDur<=0) meleeBreak(); } }
   else { const wh=rayWall(P.x,P.z,fx,fz,m.range); if(wh.ix>=0){ const x=P.x+fx*wh.t, z=P.z+fz*wh.t; sparks(x,1.1,z,wh.nx,wh.nz,blade?10:5); SFX.pipeHit({x,z}); P.shake=Math.max(P.shake,1.4); hitStop=Math.max(hitStop,.03); } }
 }
@@ -5325,16 +5369,17 @@ function meleeFx(e,x,y,z,nx,nz,m,head,blade){
   if(blade){ const w=rayWall(x,z,sx,sz,2.5); if(w.ix>=0) addDecal(g.decal||'blood',x+sx*w.t+w.nx*.01,clamp(y+R(-.3,.2),.15,2.8),z+sz*w.t+w.nz*.01,w.nx,0,w.nz,R(.6,1.2)); }
   addDecal(g.decal||'blood',x+R(-.4,.4),.015,z+R(-.4,.4),0,1,0,R(.35,.8));
   if(blade||rand()<.5) meat(x,y,z,blade?RI(2,5):RI(1,2),blade?.8:.6,sx,sz,e.d.gore==='red'?null:col);
-  if(blade) SFX.slice&&SFX.slice(e,m.kind==='heavy'); else SFX.pipeHit(e);
+  if(blade) SFX.slice&&SFX.slice(e,m.kind==='heavy'||MS.fin); else { SFX.pipeHit(e); if(MS.fin){ const o=dest(e,1); thud(o,70,.9,0,.18); woodCrack(o,.45,.02); } }
   if(head&&!blade) SFX.headshot();
 }
 function meleeSever(e,m,hf,head,blade,heavy,hp0){
+  const sev=(a,b)=>{ MS.cut=1; glbSever(a,b); };
   const rg=e.rig, has=n=>rg.boneBy[n]&&!rg.lostBones.includes(rg.boneBy[n]);
-  let ch=m.sever*(e.dead?1.4:1)*(heavy?1.2:1); if(!blade) ch*=e.dead&&head?6:1;
+  let ch=m.sever*(e.dead?1.4:1)*(heavy?1.2:1)*(MS.fin?1.5:1); if(!blade) ch*=e.dead&&head?6:1;
   if(rand()>ch) return;
-  if(head||hf>.78){ if(has('Head')){ glbSever(e,'Head'); if(!e.dead){ hurtEnemy(e,99999,0,0,0,blade?'blade':'pipe',true); } msg(blade?'DECAPITATED':'SKULL CRUSHED','#ff8a6a'); return; } }
-  if(hf>.38){ const side=(MS.side>0?'Left':'Right'); const n=has(side+'UpperArm')?side+'UpperArm':has((side==='Left'?'Right':'Left')+'UpperArm')?(side==='Left'?'Right':'Left')+'UpperArm':null; if(n){ glbSever(e,n); if(!e.dead){ e.painT=Math.max(e.painT,.6); e.dmgM*=.7; } return; } }
-  const leg=has('LeftUpperLeg')?'LeftUpperLeg':has('RightUpperLeg')?'RightUpperLeg':null; if(leg&&blade){ glbSever(e,leg); if(!e.dead){ e.downT=99; e.legless=true; vox(e,'pain'); } }
+  if(head||hf>.78){ if(has('Head')){ sev(e,'Head'); if(!e.dead){ hurtEnemy(e,99999,0,0,0,blade?'blade':'pipe',true); } msg(blade?'DECAPITATED':'SKULL CRUSHED','#ff8a6a'); return; } }
+  if(hf>.38){ const side=(MS.side>0?'Left':'Right'); const n=has(side+'UpperArm')?side+'UpperArm':has((side==='Left'?'Right':'Left')+'UpperArm')?(side==='Left'?'Right':'Left')+'UpperArm':null; if(n){ sev(e,n); if(!e.dead){ e.painT=Math.max(e.painT,.6); e.dmgM*=.7; } return; } }
+  const leg=has('LeftUpperLeg')?'LeftUpperLeg':has('RightUpperLeg')?'RightUpperLeg':null; if(leg&&blade){ sev(e,leg); if(!e.dead){ e.downT=99; e.legless=true; vox(e,'pain'); } }
   if(heavy&&e.dead&&rand()<.5) glbGore(e,'blade',false);
 }
 function meleeBreak(){ const m=MELEE[P.melee]; msg(`THE ${m.name} BREAKS`,'#ff8a6a'); SFX.crate&&SFX.crate(P); P.shake=Math.max(P.shake,1.5);
@@ -5353,7 +5398,7 @@ function pickMeleeFor(L){ return pick(MELEE_TIER[L<3?0:L<8?1:2]); }
 function placeMelee(){ const n=1+(LV.L>=2?1:0)+(rand()<.35?1:0); for(let k=0;k<n;k++) placeItem('m_'+pickMeleeFor(LV.L),4); }
 // sounds
 Object.assign(SFX,{
-  whoosh(m){ if(!AU.on) return; const o=gainN(1); o.connect(AU.sfx); const big=m.kind==='heavy'||m.range>2.2; hiss({ft:'bandpass',freq:big?500:900,f1:big?1400:2600,q:1.4,dur:big?.32:.2,vol:big?.32:.22,att:.05,out:o}); },
+  whoosh(m,fin){ if(!AU.on) return; const o=gainN(1); o.connect(AU.sfx); const big=m.kind==='heavy'||m.range>2.2||fin, v=R(.85,1.2); hiss({ft:'bandpass',freq:(big?480:900)*v,f1:(big?1500:2700)*v,q:1.5,dur:big?.26:.16,vol:(big?.36:.24)*(fin?1.3:1),att:.03,out:o}); if(fin) hiss({ft:'lowpass',freq:300,f1:120,dur:.22,vol:.25,att:.04,out:o}); },
   slice(pos,heavy){ if(!AU.on) return; const o=dest(pos,1); hiss({ft:'bandpass',freq:R(1800,2600),f1:600,q:1.6,dur:.12,vol:.6,att:.002,out:o}); hiss({ft:'lowpass',freq:900,f1:200,dur:.3,vol:.5,out:o,at:.02}); thud(o,heavy?75:110,heavy?1:.5,0,heavy?.2:.1); if(heavy) woodCrack(o,.4,.02); },
 });
 
@@ -5362,14 +5407,14 @@ let TRAIL=null;
 function meleeTrail(w,dt){
   if(!TRAIL){ const N=10, g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*2*3),3)); g.setAttribute('a',new THREE.BufferAttribute(new Float32Array(N*2),1));
     const idx=[]; for(let i=0;i<N-1;i++){ const a=i*2; idx.push(a,a+1,a+2,a+1,a+3,a+2); } g.setIndex(idx);
-    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,uniforms:{c:{value:new THREE.Color(.75,.72,.65)}},
+    const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,uniforms:{c:{value:new THREE.Color(.75,.72,.65)},k:{value:.3}},
       vertexShader:'attribute float a; varying float vA; void main(){ vA=a; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-      fragmentShader:'uniform vec3 c; varying float vA; void main(){ gl_FragColor=vec4(c*vA*vA*.3,1.); }'});
+      fragmentShader:'uniform vec3 c; uniform float k; varying float vA; void main(){ gl_FragColor=vec4(c*vA*vA*k,1.); }'});
     TRAIL={N,g,mesh:new THREE.Mesh(g,m),pts:[]}; TRAIL.mesh.frustumCulled=false; vmScene.add(TRAIL.mesh); }
   const T=TRAIL, swinging=MS.t<MS.dur, p=MS.t/MS.dur;
   if(!swinging||!w.piv||!w.model||P.weapon!==0){ T.mesh.visible=false; T.pts.length=0; return; }
   w.g.updateMatrixWorld(true); const len=w.mz.position.y/.8, tip=new THREE.Vector3(0,len*.98,0), mid=new THREE.Vector3(0,len*.72,0); tip.applyMatrix4(w.piv.matrixWorld); mid.applyMatrix4(w.piv.matrixWorld);
-  const active=p>.2&&p<.62; if(active) T.pts.unshift([tip,mid]); if(T.pts.length>T.N) T.pts.length=T.N; if(!active&&T.pts.length) T.pts.pop();
+  const active=p>.11&&p<.4; T.mesh.material.uniforms.k.value=MS.fin?.55:.3; if(active) T.pts.unshift([tip,mid]); if(T.pts.length>T.N) T.pts.length=T.N; if(!active&&T.pts.length) T.pts.pop();
   const pos=T.g.attributes.position.array, al=T.g.attributes.a.array, n=T.pts.length;
   for(let i=0;i<T.N;i++){ const q=T.pts[Math.min(i,n-1)]; if(!q){ al[i*2]=al[i*2+1]=0; continue; } pos.set([q[0].x,q[0].y,q[0].z],i*6); pos.set([q[1].x,q[1].y,q[1].z],i*6+3); const f=i<n?(1-i/T.N):0; al[i*2]=f; al[i*2+1]=f*.15; }
   T.g.attributes.position.needsUpdate=true; T.g.attributes.a.needsUpdate=true; T.mesh.visible=n>1;
@@ -5888,6 +5933,7 @@ function frame(now){
     hitStop=0;
     if(slowT>0){ slowT-=dt; timeScale=lerp(.25,1,1-clamp(slowT/1.6,0,1)); dt*=timeScale; } else timeScale=1;
     if(pickOpen) dt*=.25;
+    dt=meleeTime(dt);
     updatePlay(dt);
   }
   else if(state==='title') updateAttract(dt);
