@@ -3737,7 +3737,7 @@ function buildDoors(){
     const aC=Math.atan2(-pz,px), aO=Math.atan2(-az,ax);
     const d={i:dr.i,j:dr.j,c,ax,az,fx,fz,px,pz,piv,pan,boards,aC,aO,open:rand()<.5,amt:0,hp:80,barr:false,bashT:0,shake:0,openT:0,
       bl:blocker(fx-(px?C/2:.06),fz-(pz?C/2:.06),fx+(px?C/2:.06),fz+(pz?C/2:.06))};
-    d.amt=d.open?1:0; d.bl.on=!d.open; piv.rotation.y=d.open?aO:aC;
+    d.amt=d.open?1:0; d.dv=0; d.bl.on=!d.open; piv.rotation.y=d.open?aO:aC;
     LV.doors.push(d); LV.doorAt.set(c,d);
   }
 }
@@ -3775,7 +3775,7 @@ function updDoors(dt){
     else if(w.t<=0){ P.doorWork=null; if(w.kind==='flip'){ finishFlip(w.b); } else if(w.kind==='pry'){ finishPry(w.l); } else if(w.kind==='bar'){ w.d.barr=true; w.d.hp=240; w.d.boards.visible=true; msg('DOOR BARRICADED','#9dffb0'); } else { w.d.barr=false; w.d.boards.visible=false; w.d.hp=80; setDoor(w.d,true); } } }
   const nd=nearDoor(); P.nearDoor=nd;
   for(const d of LV.doors){ if(!d.pan.parent) continue;
-    { const tg=d.open?1:0, k=d.open?38:60, c=d.open?7.5:9; d.dv=(d.dv||0)+((tg-d.amt)*k-d.dv*c)*dt; d.amt+=d.dv*dt;
+    { if(!isFinite(d.amt)) d.amt=d.open?1:0; if(!isFinite(d.dv)) d.dv=0; const tg=d.open?1:0, k=d.open?38:60, c=d.open?7.5:9; d.dv=d.dv+((tg-d.amt)*k-d.dv*c)*dt; d.amt+=d.dv*dt;
       if(d.amt<0){ d.amt=0; if(d.dv<-.6){ d.shake=Math.max(d.shake,Math.min(1,-d.dv*.35)); if(-d.dv>1.4){ P.shake=Math.max(P.shake,.6*Math.max(0,1-Math.hypot(P.x-d.fx,P.z-d.fz)/6)); } } d.dv=-d.dv*.18; } if(d.amt>1.08){ d.amt=1.08; d.dv=0; } }
     if(d.open&&d.amt>.25) d.bl.on=false;
     let a=d.aC+Math.atan2(Math.sin(d.aO-d.aC),Math.cos(d.aO-d.aC))*d.amt; d.shake=Math.max(0,d.shake-dt*4); a+=Math.sin(LV.t*60)*d.shake*.05; d.piv.rotation.y=a;
@@ -3995,8 +3995,8 @@ function updStations(dt){
   }
   const s=P.plugged; P.charging=s||null;
   if(s){ const d=Math.hypot(P.x-s.x,P.z-s.z);
-    if(d>2.4||!P.alive) unplug('moved');
     P.plugT=(P.plugT||0)+dt; if(s.dock){ s.dock.visible=P.plugT>.4; const L=s.dock.userData.led; const f=P.battery/100; L.material.color.setRGB(f>.98?.2:(Math.sin(s.t*8)>0?.2:.05),f>.98?1:(Math.sin(s.t*8)>0?1:.25),.35); }
+    if(d>2.4||!P.alive) unplug('moved');
     else { const a=Math.min(CHARGE_RATE*dt,s.charge,100-P.battery); P.battery+=a; s.charge-=a; P.light=false;
       if(rand()<dt*.5) hearNoise(s.x,s.z,5);
       if(s.charge<=0){ SFX.stationDead(s); unplug('dead'); } else if(P.battery>=99.5) unplug('full'); } }
