@@ -236,7 +236,7 @@ body.touch .tb,body.touch #tipL,body.touch #tipR,body.touch #bMap{display:none!i
 #bl{opacity:.82;pointer-events:auto;z-index:6;padding:14px 34px 0 0}#medS .v{font-size:22px!important}#medS.busy .v{color:#9dffb0}.stat .v{font-size:30px!important}.stat .ic{font-size:15px}
 #br{opacity:.88}#ammoV{font-size:30px!important}#ammoR{font-size:17px!important}#wname{transition:opacity .6s;font-size:14px!important}
 body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transform:none!important;bottom:calc(10px + var(--sb))!important;text-align:right!important;padding:10px 0 0 30px}
-#batt{transition:opacity .6s}
+#batt{transition:opacity .6s;pointer-events:auto;z-index:6;padding:10px 18px 10px 0}#batt.off span{color:#666}#batt.off #battBar{opacity:.35}#bleedS .v{font-size:20px!important}
 #tr .hb{min-width:38px;height:34px;font-size:17px;opacity:.6}
 #stick{width:96px!important;height:96px!important;margin:-48px 0 0 -48px!important;border-color:rgba(255,255,255,.14)!important;background:none!important}
 #knob{width:34px!important;height:34px!important;margin:-17px 0 0 -17px!important;background:rgba(255,255,255,.12)!important;border-color:rgba(255,255,255,.3)!important}
@@ -282,6 +282,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
   <div id="batt"><span>◐</span><div id="battBar"><div id="battFill"></div></div></div>
   <div id="bl">
     <div class="stat"><span class="ic">✚</span><span class="v" id="hpV">100</span></div>
+    <div class="stat" id="bleedS" style="display:none;color:#ff5a4a"><span class="ic">◆</span><span class="v" id="bleedV">×1</span></div>
     <div class="stat" id="medS"><span class="ic">⊞</span><span class="v" id="medV">1</span></div>
     <div class="stat" id="arS"><span class="ic">⛨</span><span class="v" id="arV">0</span></div>
   </div>
@@ -349,7 +350,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
       <tr><td>TOUCH</td><td>Left side: move stick · Right side: drag to look · Swipe the left side to move (push far to sprint) · swipe the right side to aim · your weapon fires automatically when the dot is on a threat or crate · double-tap the right side for sights · tap the ammo count for weapons, reload, flashlight and map · ⇄ swaps weapon · ◐ flashlight</td></tr>
       <tr><td>KEYBOARD</td><td>WASD move · Mouse look · Click fire · Right-click aim · R reload · V kick · hold Shift to sprint · 1–9 / wheel / Q weapons · F flashlight · M map · Esc pause</td></tr>
       <tr><td>MEDKITS</td><td>Carry up to 3. Tap your health (H) to apply one — you can't move or shoot for 3 seconds. Vests absorb damage.</td></tr>
-      <tr><td>NOISE</td><td>Enemies hear you. Sprinting, splashing and gunfire bring them to look. Walk and they lose track of you.</td></tr><tr><td>DOORS</td><td>Close office doors to break line of sight. Barricade them to buy time — you'll hear them being battered.</td></tr><tr><td>PACK</td><td>Six slots for medkits and loose ammo. Tap your ammo to see the pack and drop things.</td></tr><tr><td>BREAKERS</td><td>Some floors have no power. Flip every breaker to bring the exit online.</td></tr><tr><td>CHARGE STATIONS</td><td>Your flashlight slowly drains. Stand at a green wall station to recharge it — each one only holds so much.</td></tr><tr><td>MAGAZINES</td><td>Ammo you find is loose. Reloading swaps magazines; when none are loaded you thumb rounds in one at a time. Spare mags refill by hand when it's quiet.</td></tr>
+      <tr><td>NOISE</td><td>Enemies hear you. Sprinting, splashing and gunfire bring them to look. Walk and they lose track of you.</td></tr><tr><td>DOORS</td><td>Close office doors to break line of sight. Barricade them to buy time — you'll hear them being battered.</td></tr><tr><td>PACK</td><td>Six slots for medkits and loose ammo. Tap your ammo to see the pack and drop things.</td></tr><tr><td>BREAKERS</td><td>Some floors have no power. Flip every breaker to bring the exit online.</td></tr><tr><td>THE OCCUPANT</td><td>Stay on a floor too long and something that cannot be killed starts hunting you. Hit the glowing sac in its chest to make it stagger, hold your light on it to slow it, and get out.</td></tr><tr><td>BLEEDING</td><td>Heavy hits make you bleed until a medkit closes the wound.</td></tr><tr><td>LIGHT</td><td>Your flashlight lasts about a minute and a half. Tap the battery to switch it off and save it.</td></tr><tr><td>LOCKERS</td><td>Supply lockers hold good loot, but prying them open is loud.</td></tr><tr><td>CHARGE STATIONS</td><td>Your flashlight slowly drains. Stand at a green wall station to recharge it — each one only holds so much.</td></tr><tr><td>MAGAZINES</td><td>Ammo you find is loose. Reloading swaps magazines; when none are loaded you thumb rounds in one at a time. Spare mags refill by hand when it's quiet.</td></tr>
       <tr><td>FLARES</td><td>Explode and burn bright. Light up the dark and everything in it.</td></tr>
       <tr><td>COMBOS</td><td>Chain kills fast for score multipliers. Headshots deal heavy damage.</td></tr>
       <tr><td>KICK</td><td>Anything that gets right up on you gets kicked back automatically. It staggers them and breaks their attack.</td></tr>
@@ -768,6 +769,7 @@ const ESTEP={
   grinner:[.62,(o)=>{ hiss({ft:'bandpass',freq:900,q:1.5,dur:.04,vol:.35,out:o}); }],
   bloat:[1.25,(o)=>{ hiss({ft:'lowpass',freq:500,f1:180,dur:.24,vol:.5,out:o}); tone({f0:70,f1:38,dur:.12,vol:.4,out:o}); }],
   mannequin:[.85,(o)=>{ tone({type:'square',f0:R(260,340),dur:.025,vol:.14,lp:1600,out:o}); tone({type:'square',f0:R(160,200),dur:.02,vol:.1,lp:1200,out:o,at:.03}); }],
+  stalker:[1.9,(o)=>{ tone({f0:44,f1:26,dur:.32,vol:1.3,out:o}); hiss({ft:'lowpass',freq:260,dur:.25,vol:.8,out:o}); hiss({ft:'bandpass',freq:1100,q:2,dur:.05,vol:.15,out:o,at:.02}); }],
   boss:[1.4,(o)=>{ tone({f0:52,f1:28,dur:.25,vol:1,out:o}); hiss({ft:'lowpass',freq:300,dur:.18,vol:.6,out:o}); }],
 };
 function enemySteps(){
@@ -775,7 +777,7 @@ function enemySteps(){
   for(const e of LV.enemies){ if(e.dead||n>=3) continue; const d=Math.hypot(e.x-P.x,e.z-P.z); if(d>22) { e._sx=e.x; e._sz=e.z; continue; }
     if(e._sx==null){ e._sx=e.x; e._sz=e.z; e._sd=0; continue; }
     e._sd=(e._sd||0)+Math.hypot(e.x-e._sx,e.z-e._sz); e._sx=e.x; e._sz=e.z;
-    const st=ESTEP[e.boss?'boss':e.type]||ESTEP.hollow; if(e._sd<st[0]) continue; e._sd=0; n++;
+    if(e.hidden) continue; const st=ESTEP[e.stalker?'stalker':e.boss?'boss':e.type]||ESTEP.hollow; if(e._sd<st[0]) continue; e._sd=0; n++;
     st[1](dest(e,d<6?.9:1.1)); }
 }
 function breathe(){
@@ -1425,7 +1427,7 @@ function buildLevel(L, attract){
   const GEN=genCorridors(W,H,!attract&&!!bossFor(L),L), g=GEN.g;
   LV={L,ti,th,W,H,g,fix:[],fixAt:new Int16Array(W*H).fill(-1),bakeK:1.25,bakeCell:new Float32Array(W*H),seen:new Uint8Array(W*H),flow:new Int16Array(W*H),flowT:0,flowCell:-1,
       enemies:[],items:[],projs:[],decals:[],t:0,spawnT:30,eventT:R(22,40),blackT:0,stutterT:0,keyCell:-1,exit:null,boss:null,
-      dmgMul:1.2+L*0.06,hpMul:1+L*0.08,cap:Math.min(11,4+L*.6),spawnInt:Math.max(16,36-L*1.3),props:[],hazards:[],anom:CUR_ANOM};
+      dmgMul:1.4+L*0.06,hpMul:1+L*0.08,cap:Math.min(11,4+L*.6),spawnInt:Math.max(16,36-L*1.3),props:[],hazards:[],anom:CUR_ANOM};
   U.lightCol.value.set(th.light);
   scene.fog=new THREE.FogExp2(th.fog,0.075); scene.background=new THREE.Color(th.fog); LV.fogCol=new THREE.Color(th.fog);
   // start
@@ -1916,6 +1918,7 @@ function chaseDir(e){
   const tx=(bi+.5)*C-e.x, tz=(bj+.5)*C-e.z, tl=Math.hypot(tx,tz)||1; return [tx/tl,tz/tl];
 }
 function hurtEnemy(e,dmg,dx,dz,knock,src,head){
+  if(e.stalker){ if(!e.hidden) stalkerHit(e,dmg,src); return; }
   if(e.dead) return 0;
   dmg*=UP.dmg*((UP.adren&&P.hp<P.maxHp*.3)?1.4:1);
   if(head) dmg*=2.1+UP.headhunter*.6;
@@ -2057,6 +2060,7 @@ function updEnemy(e,dt){
     } else if(ai==='peeker'){ [mx,mz]=peekerAI(e,dt,dist,nx,nz,spd); }
     else if(ai==='ceiling'){ [mx,mz]=ceilingAI(e,dt,dist,nx,nz,spd); }
     else if(ai==='mimic'){ [mx,mz]=mimicAI(e,dt,dist,nx,nz,spd); }
+    else if(ai==='stalker'){ [mx,mz]=stalkerAI(e,dt,dist,nx,nz,spd); }
     else if(ai==='statue'){
       e.watched=watching(e,dist);
       if(e.watched){ e.vx=e.vz=0; }
@@ -2173,7 +2177,7 @@ function bossDeath(e){
 // ---------------- items ----------------------------------------------
 const ITEM_SIZE={note:.4,magnum:.45,rifle:.5,almond:.55,medkit:.6,vest:.6,bullets:.5,shells:.5,nails:.5,flares:.5,bolts:.5,cells:.5,fuel:.55,battery:.45,key:.55,scrap:.28,tape:.5};
 function dropItem(kind,x,z,val){
-  if(kind==='almond') kind='medkit'; if(kind==='battery'){ kind='scrap'; val=val||2; }
+  if(kind==='almond') kind='medkit';
   const mat=new THREE.SpriteMaterial({map:ART.items[kind],alphaTest:.5,fog:true});
   const s=new THREE.Sprite(mat); const sz=ITEM_SIZE[kind]||1.05; s.scale.set(sz*(kind.startsWith('w_')?2:1),sz,1); s.center.set(.5,0); levelGroup.add(s);
   const it={kind,x,z,spr:s,mat,t:R(0,6),alive:true,seen:false,val:val||0,vy:0,y:.15}; LV.items.push(it); s.position.set(x,.15,z); return it;
@@ -2186,7 +2190,7 @@ function tryPickup(it){
   if(k==='scrap'){ const v=Math.ceil(it.val*UP.scrapMul*(LV.anom==='dark'?1.6:1)*(LV.anom==='swarm'?1.6:1)*(LV.anom==='hunted'?2:1)); RUN.scrap+=v; SFX.scrap(); P.scrapFlash=.4; return true; }
   if(k==='medkit'||k==='almond'){ if(UP.noHeal||(P.medkits||0)>=MEDKIT_MAX) return false; if(packUsed()>=PACK_SLOTS){ packFull(); return false; } P.medkits=(P.medkits||0)+1; msg(`+1 MEDKIT · ${P.medkits}/${MEDKIT_MAX}`+(isTouch?' — TAP HEALTH TO USE':' — PRESS H TO USE'),'#9dffb0'); SFX.pickup('heal'); }
   else if(k==='vest'){ if(P.armor>=100||UP.noArmor) return false; P.armor=Math.min(100,P.armor+50); msg('+50 ARMOR · HAZARD VEST','#8fd0ff'); SFX.pickup('armor'); }
-  else if(k==='battery'){ if(P.battery>=100||UP.noFlash) return false; P.battery=Math.min(100,P.battery+45); msg('+BATTERY','#ffe08a'); SFX.pickup('battery'); }
+  else if(k==='battery'){ if(P.battery>=100||UP.noFlash) return false; P.battery=Math.min(100,P.battery+30); msg('+30% FLASHLIGHT · SPARE CELL','#ffe08a'); SFX.pickup('battery'); }
   else if(AMMO_MAX[k]){ const n=it.amt||(it.amt=Math.max(1,Math.round(AMMO_PICK[k]*R(.65,1.15)*UP.scav))), room=packRoom(k); if(room<=0){ packFull(); return false; } const tk=Math.min(n,room); P.ammo[k]+=tk; if(tk<n){ it.amt=n-tk; msg(`+${tk} ${AMMO_NAME[k]} · PACK FULL, LEFT ${n-tk}`,'#ffcf8a'); SFX.pickup('ammo'); it.noPick=3; return false; } const bx=AMMO_W[k].some(i=>H(i).box); msg(`+${n} ${AMMO_NAME[k]}${bx?' · LOOSE':''}`); SFX.pickup('ammo'); }
   else if(k==='note'){ showNote(it.text||pick(NOTES)); }
   else if(k==='key'){ P.hasKey=true; if(LV.goal==='timed'){ LV.lockT=75; setTimeout(()=>msg('LOCKDOWN IN 75 SECONDS — GET TO THE EXIT','#ff6b6b'),900); SFX.blackout(); } msg('KEYCARD ACQUIRED — FIND THE EXIT','#6fc8ff'); SFX.pickup('key'); $('keyi').classList.remove('hidden'); updateObjective(); buzz(40); }
@@ -2221,7 +2225,7 @@ function hitProp(p,dmg){
   if(p.hp<=0){ p.alive=false; levelGroup.remove(p.spr); p.mat.dispose();
     if(p.kind==='barrel'){ setTimeout(()=>{ if(LV) explode(p.x,.6,p.z,3.6,90,null); },90); }
     else { SFX.crate(p); for(let k=0;k<22;k++) PS.spawn(p.x,R(.2,.7),p.z,R(-3,3),R(1,4),R(-3,3),.5,.36,.2,R(.6,1.4),12);
-      const r=rand(); if(r<.3){ const opts=['bullets']; for(const k of ['shells','nails','bolts','cells','fuel','flares','magnum','rifle']) if(ownsAmmo(k)) opts.push(k); dropItem(pick(opts),p.x,p.z); } else if(r<.4) dropItem('medkit',p.x,p.z);
+      const r=rand(); if(r<.3){ const opts=['bullets']; for(const k of ['shells','nails','bolts','cells','fuel','flares','magnum','rifle']) if(ownsAmmo(k)) opts.push(k); dropItem(pick(opts),p.x,p.z); } else if(r<.36) dropItem('medkit',p.x,p.z); else if(r<.46) dropItem('battery',p.x,p.z);
       for(let k=0;k<RI(2,4);k++) dropScrap(p.x,p.z,RI(1,3)); } }
 }
 function updProps(dt){ for(const p of LV.props){ if(!p.alive) continue; p.flashT-=dt; p.mat.color.setScalar(p.flashT>0?2.5:spriteLight(p.x,.5,p.z)); } }
@@ -2304,7 +2308,7 @@ function impact(hx,hy,hz_,surf,wh,col){ let nx=0,nz=0,ny=0; if(surf==='wall'){ n
 function hitscan(dir,dmg,knock,w,ox,oy,oz,noRic){
   ox=ox==null?camPos.x:ox; oy=oy==null?camPos.y:oy; oz=oz==null?camPos.z:oz; const [dx,dy,dz]=dir;
   const W_=wallInfo(ox,oy,oz,dx,dy,dz); let bt=W_.t, best=null, bp=null;
-  for(const e of LV.enemies){ if(e.dead) continue; const t=rayCyl(ox,oz,dx,dz,e.x,e.z,e.d.hr*e.scale); if(t<0||t>=bt) continue; const y=oy+dy*t; if(y<e.y+e.d.hy0||y>e.y+e.d.hy1*e.scale) continue; best=e; bt=t; }
+  for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const t=rayCyl(ox,oz,dx,dz,e.x,e.z,e.d.hr*e.scale); if(t<0||t>=bt) continue; const y=oy+dy*t; if(y<e.y+e.d.hy0||y>e.y+e.d.hy1*e.scale) continue; best=e; bt=t; }
   for(const p of LV.props){ if(!p.alive) continue; const t=rayCyl(ox,oz,dx,dz,p.x,p.z,p.hr); if(t<0||t>=bt) continue; const y=oy+dy*t; if(y>p.y1) continue; bp=p; best=null; bt=t; }
   const hx=ox+dx*bt, hy=oy+dy*bt, hzp=oz+dz*bt, hz=W_.hz;
   if(bp){ hitProp(bp,dmg); sparks(hx,hy,hzp,-dx,-dz,4,[.8,.6,.35]); return; }
@@ -2319,7 +2323,7 @@ function hitscan(dir,dmg,knock,w,ox,oy,oz,noRic){
 function pierceShot(dir,dmg,w){
   const ox=P.x, oy=camPos.y, oz=P.z, [dx,dy,dz]=dir, W_=wallInfo(ox,oy,oz,dx,dy,dz), hz=W_.hz;
   const hits=[];
-  for(const e of LV.enemies){ if(e.dead) continue; const t=rayCyl(ox,oz,dx,dz,e.x,e.z,e.d.hr*e.scale); if(t<0||t>=W_.t) continue; const y=oy+dy*t; if(y<e.y+e.d.hy0||y>e.y+e.d.hy1*e.scale) continue; hits.push([t,e,y]); }
+  for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const t=rayCyl(ox,oz,dx,dz,e.x,e.z,e.d.hr*e.scale); if(t<0||t>=W_.t) continue; const y=oy+dy*t; if(y<e.y+e.d.hy0||y>e.y+e.d.hy1*e.scale) continue; hits.push([t,e,y]); }
   for(const p of LV.props){ if(!p.alive) continue; const t=rayCyl(ox,oz,dx,dz,p.x,p.z,p.hr); if(t>=0&&t<W_.t&&oy+dy*t<p.y1) hitProp(p,dmg); }
   hits.sort((a,b)=>a[0]-b[0]); let m=1;
   for(const [t,e,y] of hits){ const hx=ox+dx*t, hzp=oz+dz*t, head=isHead(e,hx,y,hzp), g=GORE[e.d.gore]; blood(hx,y,hzp,14,dx*2,dz*2,3,g.b); mist(hx,y,hzp,6,g.b); rigHit(e,hx,y,hzp,dmg*m,'bolt',head); hurtEnemy(e,dmg*m,dx/hz,dz/hz,5,'bolt',head); if(!e.dead) addWound(e,hx,y,hzp); m*=.85; }
@@ -2390,7 +2394,7 @@ function meleeHit(w){
 function hurtPlayer(dmg,fx,fz,quiet){
   if(!P.alive||P.iframes>0||state!=='play') return;
   if(P.armor>0&&!UP.noArmor){ const ab=Math.min(P.armor,dmg*UP.armorAbs); P.armor-=ab; dmg-=ab; }
-  P.hp-=dmg; P.hurtFlash=Math.min(1,P.hurtFlash+.3+dmg/50); P.shake=Math.max(P.shake,(quiet?.5:1.5)+dmg*.06); if(!quiet) camJolt(dmg);
+  P.hp-=dmg; if(dmg>=40) addBleed(2); else if(dmg>=14&&rand()<.45) addBleed(1); P.hurtFlash=Math.min(1,P.hurtFlash+.3+dmg/50); P.shake=Math.max(P.shake,(quiet?.5:1.5)+dmg*.06); if(!quiet) camJolt(dmg);
   if(!quiet){ SFX.hurt(); buzz(60); } dmgArrow(fx,fz);
   if(P.hp<=0){
     if(RUN.revive){ RUN.revive=false; P.hp=Math.round(P.maxHp*.5); P.iframes=2; SFX.revive(); msg('SECOND WIND','#7dff9a'); $('fx-flash').style.transition='none'; $('fx-flash').style.opacity=.8; setTimeout(()=>{ $('fx-flash').style.transition='opacity 1s'; $('fx-flash').style.opacity=0; },50);
@@ -2414,7 +2418,7 @@ function populate(){
   if(L<15) placeAtFrac('tape',R(.35,.75)); else if(rand()<.5) placeAtFrac('tape',R(.35,.75));
   const n=(k,c)=>{ for(let i=0;i<c;i++) placeItem(k); };
   const sc=W/37*(an==='cache'?2:1);
-  n('medkit',Math.round(1.1*sc)+(L>4&&rand()<.4?1:0)); n('vest',(L>1?1:0)+(an==='cache'?1:0)); 
+  n('medkit',Math.round(.9*sc)+(L>4&&rand()<.3?1:0)); n('battery',rand()<.6?1:0); n('vest',(L>1?1:0)+(an==='cache'?1:0)); 
   for(const k of ['bullets','shells','nails','bolts','cells','fuel','flares']){ const base={bullets:3,shells:2.2,nails:2,bolts:1.3,cells:1.6,fuel:1.6,flares:.7,magnum:1.4,rifle:1.6}[k]; if(ownsAmmo(k)||(k==='bullets')) n(k,Math.round(base*sc)); }
   // props
   const st=LV.start;
@@ -2766,7 +2770,7 @@ function aimPick(range,forgive){
   const ox=camPos.x, oy=camPos.y, oz=camPos.z;
   const W_=wallInfo(ox,oy,oz,dx,dy,dz); let bt=Math.min(W_.t,range), best=null;
   const fz=forgive==null?.1:forgive;
-  for(const e of LV.enemies){ if(e.dead||(e.mimic&&!e.revealed)) continue;
+  for(const e of LV.enemies){ if(e.dead||e.hidden||(e.mimic&&!e.revealed)) continue;
     const r=e.d.hr*e.scale*(fz?1.12:1)+fz, t=rayCyl(ox,oz,dx,dz,e.x,e.z,r); if(t<0||t>=bt) continue;
     const y=oy+dy*t, y0=e.y+e.d.hy0-fz, y1=e.y+e.d.hy1*e.scale+fz*.5; if(y<y0||y>y1) continue;
     best={kind:'enemy',o:e,t}; bt=t; }
@@ -2780,6 +2784,9 @@ function aimPick(range,forgive){
 function aimSteer(by,bp,w){
   if(w.melee||w.arc||w.flame) return [by,bp];
   const range=AUTO_RANGE[w.id]||24, pk=aimPick(range,isTouch?.14:.08); if(!pk) return [by,bp];
+  // the Occupant: snap to the glowing sac when you're aiming near it
+  if(pk.kind==='enemy'&&pk.o.stalker){ const wp=weakPos(pk.o); if(wp){ const dx=wp.x-camPos.x, dy=wp.y-camPos.y, dz=wp.z-camPos.z, d=Math.hypot(dx,dz)||.01, ya=Math.atan2(-dx,-dz), pa=Math.atan2(dy,d);
+    let dyaw=ya-P.yaw; dyaw=Math.atan2(Math.sin(dyaw),Math.cos(dyaw)); if(Math.abs(dyaw)*d<.8&&Math.abs(pa-P.pitch)*d<.9) return [ya,pa]; } }
   const ex=aimPick(range,0); if(ex&&ex.o===pk.o) return [by,bp];
   const o=pk.o, dx=o.x-camPos.x, dz=o.z-camPos.z, d=Math.hypot(dx,dz)||.01;
   const lo=pk.kind==='enemy'?o.y+o.d.hy0+.15:.12, hi=pk.kind==='enemy'?o.y+o.d.hy1*o.scale-.15:o.y1-.12;
@@ -3061,7 +3068,7 @@ function spawnStations(){
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:stationGlowTex(),color:0x5cff7a,transparent:true,opacity:.55,blending:THREE.AdditiveBlending,depthWrite:false,fog:true}));
     glow.scale.set(.9,.9,1); glow.position.set(x-dx*.12,1.28,z-dz*.12); levelGroup.add(glow);
     levelGroup.add(g);
-    LV.stations.push({x,z,nx:-dx,nz:-dz,cell:best.j*W+best.i,charge:R(55,90),max:90,scrM,glow,t:R(0,9)});
+    LV.stations.push({x,z,nx:-dx,nz:-dz,cell:best.j*W+best.i,charge:R(35,60),max:60,scrM,glow,t:R(0,9)});
   }
 }
 // ---- medkits: carried, applied by hand, you are helpless while doing it
@@ -3070,7 +3077,7 @@ function useMedkit(){
   if(P.healT>0){ P.healT=0; msg('STOPPED — MEDKIT KEPT','#cfc6a8'); return; }
   if(UP.noHeal){ msg('YOU CANNOT HEAL THIS RUN','#ff8a8a'); return; }
   if((P.medkits||0)<=0){ msg('NO MEDKITS','#ff8a8a'); SFX.click(); return; }
-  if(P.hp>=P.maxHp){ msg('ALREADY AT FULL HEALTH','#cfc6a8'); return; }
+  if(P.hp>=P.maxHp&&!(P.bleed&&P.bleed.length)){ msg('ALREADY AT FULL HEALTH','#cfc6a8'); return; }
   cancelReload(); P.healPh=0; P.healT=MEDKIT_TIME; P.healMax=MEDKIT_TIME; IN.fire=false; SFX.medStart(); msg('APPLYING MEDKIT — HOLD STILL','#9dffb0');
 }
 function updMedkit(dt){
@@ -3078,7 +3085,7 @@ function updMedkit(dt){
   VM.sw=Math.max(VM.sw,1); P.adsHoldT=0;
   P.healT-=dt; const p=1-P.healT/P.healMax;
   if(!P.healPh&&p>.35){ P.healPh=1; SFX.medWrap(); }
-  if(P.healT<=0){ P.healT=0; P.healPh=0; P.medkits--; const n=Math.round(45*UP.almond); heal(n,false,true); msg(`+${n} HEALTH`,'#9dffb0'); SFX.medDone(); }
+  if(P.healT<=0){ P.healT=0; P.healPh=0; P.medkits--; if(P.bleed&&P.bleed.length){ P.bleed=[]; msg('BLEEDING STOPPED','#9dffb0'); } const n=Math.round(40*UP.almond); heal(n,false,true); msg(`+${n} HEALTH`,'#9dffb0'); SFX.medDone(); }
 }
 
 // ---------------- hunting AI: enemies hear you, search where you were, wait in the dark, flinch from light, limp away to lick wounds ----
@@ -3107,7 +3114,7 @@ function canSee(e,dist){
 }
 // called for aware enemies before their type AI; returns a movement override or null to let the type AI run
 function aiPre(e,dt,dist,nx,nz,spd){
-  if(e.boss) return null;
+  if(e.boss||e.stalker) return null;
   if(e.climb||e.toWall||e.falling){ if(canSee(e,dist)){ e.hunt=true; e.lkx=P.x; e.lkz=P.z; } return null; }
   // seeing the player keeps them hunting
   if(canSee(e,dist)){ if(!e.hunt){ e.hunt=true; if(e.searching) vox(e,'alert'); } e.searching=false; e.seenT=0; e.lkx=P.x; e.lkz=P.z; }
@@ -3138,6 +3145,7 @@ function aiPre(e,dt,dist,nx,nz,spd){
 function hearNoise(x,z,rad){
   if(!LV) return;
   for(const e of LV.enemies){ if(e.dead) continue; const d=Math.hypot(e.x-x,e.z-z); if(d>=rad*(e.los?1:.6)) continue;
+    if(e.stalker){ if(!e.hunt){ e.lkx=x; e.lkz=z; } continue; }
     if(e.boss){ alertEnemy(e); continue; }
     if(e.mimic&&!e.revealed){ if(d<3) alertEnemy(e); continue; }
     if(e.ambush&&d>rad*.35) continue;
@@ -3214,6 +3222,9 @@ function buildRig(e){
   const head=J(neck,0,S.nh,S.quad?.04:0); const fm=[skin,skin,skin,skin,mats.face,skin]; Mx(rig,head,S.hw,S.hh,S.hd,fm,0,S.hh/2,0,'head');
   if(S.cap){ Mx(rig,head,S.hw*1.08,.07,S.hd*1.1,new THREE.MeshPhongMaterial({color:new THREE.Color(S.cap)}),0,S.hh+.02,.02,'head'); }
   rig.j={pelvis,spine,neck,head};
+  if(e.type==='stalker'){ const wm=new THREE.MeshBasicMaterial({color:0xff7a4a,fog:true}); const w=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),wm); w.position.set(0,S.ch*.6,S.cd/2+.07); w.scale.set(1,1.2,.8); spine.add(w); rig.weak=w; rig.weakM=wm;
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:stationGlowTex(),color:0xff6030,transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false,fog:true})); gl.scale.set(.55,.55,1); gl.material.opacity=.45; gl.position.z=.05; w.add(gl); rig.weakGlow=gl;
+    for(let k=0;k<6;k++){ const v=new THREE.Mesh(boxGeo(.02,R(.12,.25),.02),wm); v.position.set(R(-.12,.12),S.ch*.6+R(-.15,.15),S.cd/2+.04); v.rotation.z=R(-1.2,1.2); spine.add(v); } }
   for(const sd of [0,1]){ const s=sd?-1:1;
     const sh=J(spine,s*(S.cw/2+S.aw/2),S.ch-S.aw*.7,0); Mx(rig,sh,S.aw,S.ua,S.aw,S.shirt?cloth:skin,0,-S.ua/2,0,'a'+sd);
     const el=J(sh,0,-S.ua,0); Mx(rig,el,S.aw*.88,S.fa,S.aw*.88,skin,0,-S.fa/2,0,'a'+sd); Mx(rig,el,S.aw*1.15,S.aw*1.7,S.aw*.55,skin,0,-S.fa-S.aw*.7,0,'a'+sd);
@@ -3285,6 +3296,7 @@ function syncRig(e,dt){
   if(Lg[1]){ Lg[1].hip.rotation.x=damp(Lg[1].hip.rotation.x,l1,14,dt); if(Lg[1].kn!==Lg[1].hip) Lg[1].kn.rotation.x=damp(Lg[1].kn.rotation.x,k1+R_.l1,14,dt); }
   // jitter twitch for the unnatural ones
   if(e.type==='hollow'&&rand()<dt*.6) R_.head+=R(-.4,.4);
+  if(rg.weak){ e.weakFlash=Math.max(0,(e.weakFlash||0)-dt*2); const p=.6+.4*Math.sin(LV.t*(e.hunt?7:3)); rg.weakM.color.setRGB(1*p+e.weakFlash,.45*p+e.weakFlash*.5,.28*p); const s=1+.12*Math.sin(LV.t*(e.hunt?7:3)); rg.weak.scale.set(s,1.2*s,.8*s); }
   rigShade(e);
   rigStumps(e,dt);
 }
@@ -3310,7 +3322,7 @@ function rigHit(e,hx,hy,hz,dmg,src,head){
   const R_=rg.react, k=clamp(dmg/30,.3,1.6);
   if(part==='head') R_.head+=.7*k; else if(part==='torso') R_.spine+=.35*k; else if(part[0]==='a') R_[part]+=.6*k*(rand()<.5?1:-1); else R_[part]+=.9*k;
   rigWound(e,part,hx,hy,hz);
-  if(e.dead) return;
+  if(e.dead||e.stalker) return;
   e.limb=e.limb||{}; e.limb[part]=(e.limb[part]||0)+dmg;
   const heavy=src==='shotgun'||src==='sawed'||src==='bolt'||src==='boom';
   // leg shots drop them
@@ -3644,7 +3656,7 @@ function setDoor(d,open,who){
   if(d.open===open) return; if(!open&&doorBlockedBy(d)) { if(!who) msg('SOMETHING IS IN THE WAY','#cfc6a8'); return; }
   d.open=open; SFX.door2(d,open); if(!open) d.bl.on=true;
 }
-function ctxPrimary(){ if(!P.doorWork&&(P.plugged||nearStation())) plugAction(); else if(!P.doorWork&&nearBreaker()) flipAction(); else doorAction(); }
+function ctxPrimary(){ if(!P.doorWork&&nearLocker()) pryAction(); else if(!P.doorWork&&(P.plugged||nearStation())) plugAction(); else if(!P.doorWork&&nearBreaker()) flipAction(); else doorAction(); }
 function doorAction(){
   if(P.doorWork){ P.doorWork=null; msg('STOPPED','#cfc6a8'); return; }
   const d=nearDoor(); if(!d||P.healT>0) return;
@@ -3658,7 +3670,7 @@ function updDoors(dt){
   // player doorwork (barricading / un-barricading) pins you in place like a medkit
   const w=P.doorWork; if(w){ w.t-=dt; VM.sw=Math.max(VM.sw,1); if(Math.floor((w.t+dt)/.45)!==Math.floor(w.t/.45)) SFX.hammer(w.d);
     if(!P.alive) { P.doorWork=null; }
-    else if(w.t<=0){ P.doorWork=null; if(w.kind==='flip'){ finishFlip(w.b); } else if(w.kind==='bar'){ w.d.barr=true; w.d.hp=240; w.d.boards.visible=true; msg('DOOR BARRICADED','#9dffb0'); } else { w.d.barr=false; w.d.boards.visible=false; w.d.hp=80; setDoor(w.d,true); } } }
+    else if(w.t<=0){ P.doorWork=null; if(w.kind==='flip'){ finishFlip(w.b); } else if(w.kind==='pry'){ finishPry(w.l); } else if(w.kind==='bar'){ w.d.barr=true; w.d.hp=240; w.d.boards.visible=true; msg('DOOR BARRICADED','#9dffb0'); } else { w.d.barr=false; w.d.boards.visible=false; w.d.hp=80; setDoor(w.d,true); } } }
   const nd=nearDoor(); P.nearDoor=nd;
   for(const d of LV.doors){ if(!d.pan.parent) continue;
     d.amt=damp(d.amt,d.open?1:0,6,dt); if(d.open&&d.amt>.25) d.bl.on=false;
@@ -3670,7 +3682,7 @@ function updDoors(dt){
     for(const e of LV.enemies){ if(e.dead||!e.aware||e.ceil) continue; const dd=Math.hypot(e.x-d.fx,e.z-d.fz); if(dd>e.d.r+.55) continue;
       if(!d.barr&&(e.type==='hollow'||e.type==='mannequin')){ e.bashT=(e.bashT||0)+dt; if(e.bashT>.7){ e.bashT=0; setDoor(d,true,e); SFX.creakOpen&&SFX.creakOpen(d); } continue; }
       e.bashT=(e.bashT||0)+dt; e.vx*=.5; e.vz*=.5;
-      if(e.bashT>.85){ e.bashT=0; const dmg=(e.boss?120:e.d.dmg*1.3)*(e.dmgM||1); d.hp-=dmg; d.shake=1; SFX.doorBang(d); hearNoise(d.fx,d.fz,12); e.atkT=0; e.painT=Math.max(e.painT,.1);
+      if(e.bashT>.85){ e.bashT=0; const dmg=(e.boss?120:e.stalker?110:e.d.dmg*1.3)*(e.dmgM||1); d.hp-=dmg; d.shake=1; SFX.doorBang(d); hearNoise(d.fx,d.fz,12); e.atkT=0; e.painT=Math.max(e.painT,.1);
         for(let k=0;k<6;k++) PS.spawn(d.fx+R(-.3,.3),R(.4,2),d.fz+R(-.3,.3),R(-1.5,1.5)+d.ax*-2,R(0,2),R(-1.5,1.5)+d.az*-2,.45,.36,.22,R(.6,1.1),10);
         if(d.hp<=0) breakDoor(d); }
     }
@@ -3943,6 +3955,115 @@ function mimicAI(e,dt,dist,nx,nz,spd){
 }
 EDEF.mimic=Object.assign({},EDEF.crawler,{name:'MIMIC',hp:115,speed:3,r:.36,h:1,ar:1,hy0:0,hy1:1,hr:.42,head:[.75,1.05,.3],dmg:15,score:150,ai:'mimic',shy:0,gore:'red',pain:.3});
 
+// ---------------- stakes: the Occupant (an unkillable stalker), bleeding, a light you have to ration, supply lockers ----------------
+EDEF.stalker=Object.assign({},EDEF.hollow,{name:'THE OCCUPANT',hp:99999,speed:1.55,r:.44,h:3,hy1:2.95,hr:.45,head:[2.45,3,.3],dmg:52,score:0,pain:0,mass:6,scrap:0,gore:'ink',ai:'stalker'});
+RIG_SPEC.stalker={look:'stalker',face:'hollow',skin:'#2c2722',cloth:'#0e0e0e',stain:'#000',base:'hollow',scale:1.2,hunch:.5,armFwd:-.55,stride:1.9};
+const STALK={spawnAt:0,e:null,heartT:0,warned:false};
+function stalkerSetup(L){
+  STALK.e=null; STALK.warned=false; STALK.heartT=0;
+  LV.stalkT=(L===0?150:Math.max(55,105-L*5))*R(.9,1.15);
+}
+function farCellFromPlayer(){
+  const W=LV.W, f=LV.flow; let best=-1,bv=-1;
+  for(let k=0;k<400;k++){ const c=RI(0,W*LV.H-1); if(LV.g[c]||f[c]<0) continue; const i=c%W, j=(c/W)|0; if(los(P.x,P.z,(i+.5)*C,(j+.5)*C)) continue; const v=f[c]+R(0,6); if(v>bv){ bv=v; best=c; } }
+  return best;
+}
+function spawnStalker(){
+  const c=farCellFromPlayer(); if(c<0) return;
+  ART.en.stalker=ART.en.stalker||ART.en.hollow; VOX.stalker=VOX.stalker||stalkerVox;
+  const e=spawnEnemy('stalker',c%LV.W,(c/LV.W)|0,true); e.stalker=true; e.hunt=false; e.lkx=P.x+R(-6,6); e.lkz=P.z+R(-6,6); e.smellT=6; e.stun=0; e.mult=1; e.age=0; e.tint=[.75,.72,.7];
+  STALK.e=e; LV.stutterT=2.2; SFX.blackout(); AMBEV.slam();
+  setTimeout(()=>{ if(!AU.on) return; voice({x:P.x+R(-30,30),z:P.z+R(-30,30)},62,38,3.2,[[300,4,1],[700,5,.6],[1900,8,.25]],1.6,'sawtooth',[3,6]); },700);
+  msg('SOMETHING ELSE IS ON THIS FLOOR','#ff6b6b'); updateObjective();
+  if(!META.occTaught){ setTimeout(()=>msg('YOU CAN\'T KILL IT. SHOOT THE GLOW IN ITS CHEST TO SLOW IT DOWN','#ffcf8a'),4500); META.occTaught=true; saveMeta&&saveMeta(); }
+}
+function stalkerVox(e,k){ if(!AU.on) return;
+  if(k==='attack') voice(e,90,55,.9,[[400,4,1],[1200,6,.5]],1.4,'sawtooth',[20,12]);
+  else if(k==='pain') voice(e,70,45,1.2,[[300,4,1],[900,6,.4]],1,'sawtooth',[6,6]);
+  else voice(e,R(48,60),R(36,44),R(1.4,2.2),[[260,4,1],[650,5,.5]],.8,'sawtooth',[R(2,4),4]); }
+// it can't die. Enough punishment and it pulls back into the dark for a while.
+// the weak spot: a swollen, glowing sac in its chest. Hit it and it buckles.
+// where the sac is in the world, or null if it's facing away from you
+function weakPos(e){ const rg=e.rig; if(!rg||!rg.weak||e.hidden) return null; const wp=new THREE.Vector3(); rg.weak.getWorldPosition(wp);
+  const fx=Math.sin(rg.yaw), fz=Math.cos(rg.yaw), tx=camPos.x-e.x, tz=camPos.z-e.z; if(fx*tx+fz*tz<=0) return null; return wp; }
+// a hit counts if your line of fire passed close to the sac
+function weakHit(e){ const h=e.lastHit; if(!h) return false; const wp=weakPos(e); if(!wp) return false;
+  const dx=h.x-camPos.x, dy=h.y-camPos.y, dz=h.z-camPos.z, l=Math.hypot(dx,dy,dz)||1, ux=dx/l, uy=dy/l, uz=dz/l;
+  const wx=wp.x-camPos.x, wy=wp.y-camPos.y, wz=wp.z-camPos.z, t=wx*ux+wy*uy+wz*uz;
+  return Math.hypot(wx-ux*t,wy-uy*t,wz-uz*t)<.3; }
+function stalkerHit(e,dmg,src){
+  const weak=weakHit(e); e.lastHit=null;
+  if(weak){ e.stun+=dmg*2.2; e.staggerT=Math.max(e.staggerT||0,.75); e.slowT=Math.min(4.5,Math.max(e.slowT||0,0)+2.4); e.slowK=.22; e.painT=.6; e.atkT=0; e.mode=''; e.cd=Math.max(e.cd,1.4); e.weakFlash=1; if(e.rig) e.rig.react.spine+=1.1;
+    const g=GORE.ink.b; blood(e.x,e.y+2,e.z,16,0,0,4,g); SFX.splat(e); SFX.headshot(); vox(e,'pain'); hitMarker&&hitMarker(true); if(!STALK.taught){ STALK.taught=true; msg('ITS CHEST — IT BUCKLES WHEN YOU HIT IT THERE','#ffcf8a'); } }
+  else if(!(e.slowT>.15)){ e.slowT=.15; e.slowK=.8; }
+  e.stun+=dmg*(src==='flare'||src==='boom'?6:1)*(weak?0:.35); e.flashT=.06; e.painT=Math.max(e.painT,.08);
+  if(e.stun>=260&&!(e.retreatT>0)){ e.retreatT=22; e.stun=0; e.fleeRun=3; vox(e,'pain'); msg('IT FALLS BACK INTO THE DARK','#cfc6a8'); }
+}
+function stalkerAI(e,dt,dist,nx,nz,spd){
+  e.age+=dt; e.mult=Math.min(1.55,1+e.age/240); e.slowT=(e.slowT||0)-dt;
+  // retreating: run, then vanish and come back from somewhere else
+  if(e.retreatT>0){ e.retreatT-=dt;
+    if(e.fleeRun>0){ e.fleeRun-=dt; const [fx,fz]=fleeDir(e); if(e.fleeRun<=0){ const c=farCellFromPlayer(); if(c>=0){ e.x=(c%LV.W+.5)*C; e.z=(((c/LV.W)|0)+.5)*C; } e.hidden=true; if(e.rig) e.rig.root.visible=false; } return [fx*3.2,fz*3.2]; }
+    if(e.retreatT<=0){ e.hidden=false; if(e.rig) e.rig.root.visible=true; e.lkx=P.x+R(-5,5); e.lkz=P.z+R(-5,5); voice(e,55,40,2.4,[[280,4,1],[700,5,.5]],1.2,'sawtooth',[3,5]); }
+    return [0,0]; }
+  const seen=e.los&&dist<(P.light&&P.battery>0&&!P.plugged?32:11);
+  // the light hurts it: hold the beam on it and it slows to a crawl
+  let lit=false; if(P.light&&P.battery>0&&!P.plugged&&e.los&&dist<flash.distance){ const cp=Math.cos(P.pitch), c=(-nx*-Math.sin(P.yaw)*cp+-nz*-Math.cos(P.yaw)*cp); lit=c>.94; }
+  e.litT=lit?(e.litT||0)+dt:0; if(lit&&rand()<dt*.6) vox(e,'pain');
+  // a hit to the sac doubles it over, then it limps for a few seconds
+  if(e.staggerT>0){ e.staggerT-=dt; e.painT=Math.max(e.painT,.1); return [0,0]; }
+  let sp=spd*e.mult; if(e.slowT>0) sp*=(e.slowK||.8); if(e.litT>.4) sp*=.4;
+  if(seen){ e.hunt=true; e.lkx=P.x; e.lkz=P.z; e.seenT=0; sp*=2.15; }
+  else { e.seenT=(e.seenT||0)+dt; if(e.seenT>2) e.hunt=false;
+    // it always roughly knows where you are
+    e.smellT-=dt; if(e.smellT<=0){ e.smellT=R(5,9); const er=Math.max(2,9-e.age/40); e.lkx=P.x+R(-er,er); e.lkz=P.z+R(-er,er); } }
+  if(dist<2.1&&e.cd<=0&&e.los){ e.atkT=.55; e.mode='melee'; e.atkHit=false; vox(e,'attack'); return [0,0]; }
+  const [mx,mz]=e.hunt?chaseDir(e):flowStep(e,fieldTo(e.lkx,e.lkz),e.lkx,e.lkz); e.moving=true;
+  return [mx*sp,mz*sp];
+}
+function updStalker(dt){
+  if(!LV||state!=='play') return;
+  if(!STALK.e&&LV.stalkT>0&&!LV.boss){ LV.stalkT-=dt; if(LV.stalkT<20&&!STALK.warned){ STALK.warned=true; LV.stutterT=.6; AMBEV.groan(); } if(LV.stalkT<=0) spawnStalker(); }
+  const e=STALK.e; if(!e||e.dead||e.hidden) return;
+  const d=Math.hypot(e.x-P.x,e.z-P.z);
+  // your heart knows before you do
+  if(d<16&&P.alive){ STALK.heartT-=dt; if(STALK.heartT<=0){ STALK.heartT=.35+d/22; SFX.heart(); } }
+  if(d<14) AU.tgtInt=Math.max(AU.tgtInt,1-d/14);
+  if(d<9&&rand()<dt*(1-d/9)*3&&!(LV.stutterT>0)) LV.stutterT=R(.15,.5);
+}
+// ---- bleeding: deep hits keep hurting until a medkit closes them (or they slowly clot)
+function addBleed(n){ P.bleed=P.bleed||[]; for(let i=0;i<n;i++) if(P.bleed.length<4) P.bleed.push(R(22,32)); if(n>0) msg('YOU\'RE BLEEDING — USE A MEDKIT','#ff6b6b'); }
+function updBleed(dt){
+  if(!P.alive||!P.bleed||!P.bleed.length) return;
+  for(let i=P.bleed.length-1;i>=0;i--){ P.bleed[i]-=dt; if(P.bleed[i]<=0) P.bleed.splice(i,1); }
+  const n=P.bleed.length; if(!n) return;
+  P.hp-=dt*.9*n; P.bleedDrip=(P.bleedDrip||0)-dt;
+  if(P.bleedDrip<=0){ P.bleedDrip=R(.5,1.1)/n; addDecal('blood',P.x+R(-.2,.2),.015,P.z+R(-.2,.2),0,1,0,R(.08,.16)); P.hurtFlash=Math.min(1,P.hurtFlash+.08); }
+  if(P.hp<=0){ P.hp=0; playerDie(); }
+}
+// ---- supply lockers: loud to pry open, worth it if nothing hears you
+function lockerTex(){ return rtex('locker',32,64,(x,w,h)=>{ x.fillStyle='#4a5048'; x.fillRect(0,0,w,h); x.fillStyle='#3a3f38'; x.fillRect(2,2,w-4,h-4); for(let i=0;i<5;i++){ x.fillStyle='#1c1f1b'; x.fillRect(8,6+i*3,16,1.5); } x.fillStyle='#b8b090'; x.fillRect(24,30,3,8); x.fillStyle='#c8b040'; x.fillRect(6,44,20,7); x.fillStyle='#1a1a10'; x.font='bold 5px monospace'; x.fillText('SUPPLY',7,49.5); grime(x,w,h,30,.2); }); }
+function placeLockers(){
+  LV.lockers=[]; const W=LV.W, n=LV.L===0?1:RI(2,3), m=new THREE.MeshPhongMaterial({map:lockerTex(),shininess:30,fog:true}), side=new THREE.MeshPhongMaterial({color:0x353a33,fog:true});
+  const rooms=(LV.rooms||[]).filter(r=>Math.hypot(r.ci-LV.start.i,r.cj-LV.start.j)>5);
+  for(let k=0;k<n&&rooms.length;k++){ const r=rooms.splice(RI(0,rooms.length-1),1)[0]; const wc=wallCells(r); if(!wc.length) continue; const c=pick(wc);
+    const x=(c.i+.5)*C-c.nx*(C*.5-.24), z=(c.j+.5)*C-c.nz*(C*.5-.24), yaw=Math.atan2(c.nx,c.nz);
+    const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=yaw; levelGroup.add(g);
+    const body=new THREE.Mesh(boxGeo(.62,1.85,.42),[side,side,side,side,m,side]); body.position.y=.925; body.castShadow=true; body.receiveShadow=true; g.add(body);
+    const doorP=new THREE.Group(); doorP.position.set(-.31,0,.215); g.add(doorP); const dm=new THREE.Mesh(boxGeo(.62,1.82,.02),m); dm.position.set(.31,.925,0); doorP.add(dm);
+    blocker(x-.35,z-.35,x+.35,z+.35);
+    LV.lockers.push({x,z,nx:c.nx,nz:c.nz,open:false,doorP,fx:x,fz:z}); }
+}
+function nearLocker(){ let best=null,bd=1.5; for(const l of LV.lockers||[]){ if(l.open) continue; const d=Math.hypot(P.x-l.x,P.z-l.z); if(d<bd&&(P.x-l.x)*l.nx+(P.z-l.z)*l.nz>0){ bd=d; best=l; } } return best; }
+function pryAction(){ const l=nearLocker(); if(!l||P.healT>0||P.doorWork) return; P.doorWork={kind:'pry',l,d:{fx:l.x,fz:l.z},t:3,max:3}; msg('PRYING IT OPEN — THIS IS LOUD','#ffcf8a'); }
+function finishPry(l){
+  l.open=true; l.doorP.rotation.y=-1.9; SFX.crate({x:l.x,z:l.z}); hearNoise(l.x,l.z,22);
+  const fx=l.x+l.nx*.6, fz=l.z+l.nz*.6, opts=['bullets']; for(const k of ['shells','nails','bolts','magnum','rifle']) if(ownsAmmo(k)) opts.push(k);
+  dropItem(pick(opts),fx+R(-.2,.2),fz+R(-.2,.2)); dropItem(pick(opts),fx+R(-.2,.2),fz+R(-.2,.2));
+  const r=rand(); if(r<.45) dropItem('medkit',fx,fz); else if(r<.85) dropItem('battery',fx,fz); else dropItem('armor',fx,fz);
+  msg('LOCKER OPEN','#9dffb0');
+}
+
 // ---------------- campaign ----------------------------------------------
 const CHAPTERS=[
   {nm:'THE LOBBY',boss:'attendant',intro:"Work order #4471: persistent fluorescent hum, sublevel B. You leaned on a wall to sign the ticket. The wall didn't hold. Now there's damp carpet as far as the light reaches — and something is walking toward the sound of your footsteps."},
@@ -4166,8 +4287,8 @@ function updateHUD(dt){
   setT('ammoV',w.ammo?String(hm?P.mag[P.weapon]:P.ammo[w.ammo]):'∞');
   { const hh=H(P.weapon), sp=hh.box?sparesOf(P.weapon):null; setT('ammoR',!hm?'':sp?' '+sp.map(c=>c>=hh.mag*.6?'▮':c>0?'▯':'·').join('')+(P.ammo[w.ammo]?' +'+P.ammo[w.ammo]:''):' +'+P.ammo[w.ammo]); } $('ammoV').classList.toggle('empty',!!w.ammo&&(hm?P.mag[P.weapon]:P.ammo[w.ammo])<(w.cost||1));
   const wn=P.healT>0?'APPLYING MEDKIT…':P.plugged?`CHARGING ${Math.round(P.battery)}%`:P.reloadT>0?(P.rlMode==='thumb'?'LOADING ROUNDS…':P.rlMode==='shell'?'LOADING SHELLS…':'RELOADING…'):P.packing?'LOADING MAGS…':w.name; if(HUDC.wnLast!==wn){ HUDC.wnLast=wn; P.wnT=2.2; } P.wnT=Math.max(0,(P.wnT||0)-dt); setT('wname',wn); $('wname').classList.toggle('rl',P.reloadT>0); $('wname').style.opacity=(P.reloadT>0||P.packing||P.healT>0||P.charging||P.wnT>0)?1:0;
-  $('batt').style.opacity=(P.battery<40||P.charging||!P.light||LV.blackT>0)?1:0;
-  setT('medV',String(P.medkits||0)); $('medS').classList.toggle('busy',P.healT>0); $('medS').style.opacity=(P.medkits||0)>0?1:.35;
+  $('batt').style.opacity=1; $('batt').classList.toggle('off',!P.light||!!P.plugged);
+  setT('medV',String(P.medkits||0)); { const nb=(P.bleed||[]).length; $('bleedS').style.display=nb?'':'none'; if(nb) setT('bleedV','×'+nb); } $('medS').classList.toggle('busy',P.healT>0); $('medS').style.opacity=(P.medkits||0)>0?1:.35;
   P.tlT=Math.max(0,(P.tlT||0)-dt); $('tlFade').style.opacity=P.tlT>0?Math.min(1,P.tlT):0;
   if(HUDC.objLast!==$('obj').textContent){ HUDC.objLast=$('obj').textContent; P.tlT=6; }
   for(let i=1;i<NW;i++){ if(P.owned[i]) setT('wa'+i,String(totalAmmo(i))); }
@@ -4249,6 +4370,7 @@ $('bNext').addEventListener('pointerup',()=>{ if(nextHold!==-1){ clearTimeout(ne
 $('ctxB').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); ctxPrimary(); });
 $('ctxB2').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); barricadeAction(); });
 $('noteBox').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); $('noteBox').classList.add('hidden'); P.noteT=0; });
+$('batt').addEventListener('pointerdown',e=>{ if(state!=='play') return; e.stopPropagation(); e.preventDefault(); if(P.plugged){ plugAction(); return; } toggleLight(); });
 $('bl').addEventListener('pointerdown',e=>{ if(state!=='play') return; e.stopPropagation(); e.preventDefault(); useMedkit(); });
 $('br').addEventListener('pointerdown',e=>{ if(!isTouch||state!=='play') return; e.stopPropagation(); e.preventDefault(); openPicker(); });
 let pickOpen=false;
@@ -4294,7 +4416,7 @@ function showScreen(id){ if(id!=='sDead') stopReplay(); for(const s of SCREENS) 
 function exitPointer(){ if(document.pointerLockElement){ IN.ignoreUnlock=true; try{ document.exitPointerLock(); }catch(e){} } }
 function startLevel(L){
   CUR_ANOM=RUN.anom||'quiet'; RUN.L=L; P.alive=true; P.deadT=0;
-  buildLevel(L,false); buildDoors(); decorateRooms(); scatterDecor(); spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
+  buildLevel(L,false); buildDoors(); decorateRooms(); placeLockers(); scatterDecor(); stalkerSetup(L); P.bleed=[]; spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
   state='play'; showScreen(null); $('hud').classList.remove('hidden'); if(isTouch) $('touch').classList.remove('hidden');
   mapOn=false; mapC.classList.add('hidden'); $('tape').classList.add('hidden');
   $('lvl').textContent=`${levelName(L)} · ${LV.th.name}`;
@@ -4382,7 +4504,7 @@ function updatePlay(dt){
     if(wantShoot&&P.sprintPose<.45&&(melee||P.ads>.62)) fire(); }
   { const hd=H(P.weapon), w=WEAPONS[P.weapon]; if(hd.mag&&w.ammo&&P.mag[P.weapon]<(w.cost||1)&&P.reloadT<=0&&totalAmmo(P.weapon)>P.mag[P.weapon]&&P.alive&&P.fireCd<=0) startReload(false); }
   updRecoil(dt);
-  if(P.light&&P.battery>0){ P.battery=Math.max(0,P.battery-dt*(LV.blackT>0?.55:.3)*UP.drain); }
+  if(P.light&&P.battery>0&&!P.plugged){ const was=P.battery; P.battery=Math.max(0,P.battery-dt*(LV.blackT>0?1.4:1)*UP.drain); if(was>25&&P.battery<=25) msg('FLASHLIGHT LOW — TAP THE BATTERY TO SAVE IT','#ffcf8a'); if(was>0&&P.battery<=0){ msg('YOUR LIGHT IS DEAD','#ff6b6b'); SFX.click(); } }
   flashPower=battK()*(P.battery<20?(Math.random()<.07?.18:1):1);
   if(LV.flashGlitch>0){ LV.flashGlitch-=dt; flashPower*=Math.random()<.55?.05:.7; }
   applyFlashlight();
@@ -4400,7 +4522,7 @@ function updatePlay(dt){
   LV.flareFly=false;
   for(const p of LV.projs) if(p.alive) updProj(p,dt);
   LV.projs=LV.projs.filter(p=>p.alive);
-  updItems(dt); updProps(dt); updHazards(dt); updStations(dt); updMedkit(dt); updDoors(dt); updRooms(dt); updGoals(dt); updCtx();
+  updItems(dt); updProps(dt); updHazards(dt); updStations(dt); updMedkit(dt); updDoors(dt); updRooms(dt); updGoals(dt); updStalker(dt); updBleed(dt); updCtx();
   if(P.alive){ const e=LV.exit, d=Math.hypot(P.x-e.x,P.z-e.z), front=(P.x-e.x)*e.dx+(P.z-e.z)*e.dz;
     if(d<1.55&&front>-.05){ if(P.hasKey){ SFX.door(); P.alive=false; state='transition'; $('fx-flash').style.transition='opacity .5s'; $('fx-flash').style.opacity=1; setTimeout(()=>{ $('fx-flash').style.opacity=0; showUpgrades(); },600); }
       else if(!LV.lockMsgT||LV.t>LV.lockMsgT){ LV.lockMsgT=LV.t+2.5; SFX.locked(); msg('LOCKED — KEYCARD REQUIRED','#ff6060'); } } }
@@ -4482,9 +4604,10 @@ try{ boot(); }catch(err){ $('load').textContent='FAILED TO START: '+err.message;
 
 function updCtx(){
   const d=P.nearDoor, b1=$('ctxB'), b2=$('ctxB2');
+  if(!P.doorWork&&P.alive&&nearLocker()){ b1.classList.remove('hidden'); setT('ctxB','PRY OPEN LOCKER'); b2.classList.add('hidden'); return; }
   if(!P.doorWork&&P.alive&&(P.plugged||nearStation())){ const s=P.plugged||nearStation(); b1.classList.remove('hidden'); setT('ctxB',P.plugged?'UNPLUG · '+Math.round(P.battery)+'%':s.charge<=0?'STATION DEAD':'PLUG IN LIGHT'); b2.classList.add('hidden'); return; }
   if(!P.doorWork&&P.alive&&nearBreaker()){ b1.classList.remove('hidden'); setT('ctxB','FLIP BREAKER'); b2.classList.add('hidden'); return; }
-  if(P.doorWork){ b1.classList.remove('hidden'); setT('ctxB',(P.doorWork.kind==='bar'?'BARRICADING… ':P.doorWork.kind==='flip'?'FLIPPING… ':'PRYING… ')+Math.ceil(P.doorWork.t*10)/10+'s ✕'); b2.classList.add('hidden'); return; }
+  if(P.doorWork){ b1.classList.remove('hidden'); setT('ctxB',(P.doorWork.kind==='bar'?'BARRICADING… ':P.doorWork.kind==='flip'?'FLIPPING… ':P.doorWork.kind==='pry'?'PRYING LOCKER… ':'PRYING… ')+Math.ceil(P.doorWork.t*10)/10+'s ✕'); b2.classList.add('hidden'); return; }
   if(!d||!P.alive){ b1.classList.add('hidden'); b2.classList.add('hidden'); return; }
   b1.classList.remove('hidden'); setT('ctxB',d.barr?'REMOVE BOARDS':d.open?'CLOSE DOOR':'OPEN DOOR');
   b2.classList.toggle('hidden',d.open||d.barr);
