@@ -2228,6 +2228,8 @@ function bossDeath(e){
 const ITEM_SIZE={note:.4,magnum:.45,rifle:.5,almond:.55,medkit:.6,vest:.6,bullets:.5,shells:.5,nails:.5,flares:.5,bolts:.5,cells:.5,fuel:.55,battery:.45,key:.55,scrap:.28,tape:.5};
 function dropItem(kind,x,z,val){
   if(kind==='almond') kind='medkit';
+  if(kind.startsWith('w_')&&typeof gunPickup==='function'&&ASSET.ready){ const gp=gunPickup(kind); if(gp){ levelGroup.add(gp.obj); gp.obj.position.set(x,.02,z);
+    const it={kind,x,z,spr:gp.obj,mat:gp.mat,t:R(0,6),alive:true,seen:false,val:val||0,vy:0,y:.02}; LV.items.push(it); return it; } }
   const mat=new THREE.SpriteMaterial({map:ART.items[kind],alphaTest:.5,fog:true});
   const s=new THREE.Sprite(mat); const sz=ITEM_SIZE[kind]||1.05; s.scale.set(sz*(kind.startsWith('w_')?2:1),sz,1); s.center.set(.5,0); levelGroup.add(s);
   const it={kind,x,z,spr:s,mat,t:R(0,6),alive:true,seen:false,val:val||0,vy:0,y:.15}; LV.items.push(it); s.position.set(x,.15,z); return it;
@@ -4540,6 +4542,24 @@ const _g20=SFX.gun;
       hiss({ft:'bandpass',freq:1200,f1:500,q:.8,dur:1.4,vol:.45,att:.05,out:o,at:.08}); tone({f0:52,f1:38,dur:.8,vol:.5,lp:200,out:o}); earHit(.9); return; }
     if(kind==='throw'){ const o=sfxO(); clk(o,2600,.4); metalTick(o,.06,.02); rustle(o,.22,.05,.22); hiss({ft:'bandpass',freq:900,f1:400,q:1,dur:.25,vol:.18,att:.03,out:o,at:.12}); return; }
     _g(kind); };
+}
+// ---- weapons on the floor: the real model at real size, lying on its side, with a faint glint so you can spot it
+function gunPickup(kind){
+  const id=kind.slice(2), gl=ASSET.guns&&ASSET.guns[id]; if(!gl) return null;
+  const outer=new THREE.Group(), inner=new THREE.Group(); outer.add(inner);
+  const model=gl.scene.clone(true), mats=[];
+  model.traverse(o=>{ if(o.isMesh){ const m=gunMat(o.material); m.emissive=new THREE.Color(0,0,0); mats.push(m); o.material=m; o.castShadow=true; } });
+  inner.add(model); inner.rotation.z=Math.PI/2*(rand()<.5?1:-1);
+  inner.updateMatrixWorld(true); const bb=new THREE.Box3().setFromObject(inner); inner.position.y=-bb.min.y+.004;
+  const c=bb.getCenter(new THREE.Vector3()); inner.position.x=-c.x; inner.position.z=-c.z;
+  outer.rotation.y=R(0,TAU);
+  const glint=new THREE.Sprite(new THREE.SpriteMaterial({map:ART.flare,color:0xffe0a0,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0,fog:true}));
+  glint.scale.setScalar(.22); glint.position.y=Math.max(.06,bb.max.y-bb.min.y)+.05; outer.add(glint);
+  let t=R(0,6);
+  const mat={rotation:0,
+    color:{setScalar(v){ t+=.016; const p=Math.pow(Math.max(0,Math.sin(t*2.2)),12); glint.material.opacity=.15+.75*p; const e=.05+.06*p; for(const m of mats) m.emissive.setRGB(e,e*.9,e*.7); }},
+    dispose(){ for(const m of mats) m.dispose(); glint.material.dispose(); }};
+  return {obj:outer,mat};
 }
 
 // ---- PC / touch: live input-mode switching, key legend and key prompts
