@@ -281,6 +281,17 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
 #tut .tl,#tut .tr{width:38%;padding:18px;border:1px dashed rgba(255,255,255,.25);border-radius:14px;background:rgba(0,0,0,.25)}
 #tut .tb2{position:absolute;bottom:18%;left:0;right:0;font-size:15px;opacity:.8}
 @keyframes tutin{from{opacity:0}to{opacity:1}}
+/* touch: status moves to the top-left, clear of the move thumb */
+body.touch #bl{top:calc(78px + var(--st));bottom:auto!important;align-items:center;gap:14px;padding:0 24px 10px 0}
+body.touch .stat .v{font-size:24px!important}body.touch #medS .v{font-size:20px!important}
+body.touch #batt{top:calc(112px + var(--st));bottom:auto!important;padding:8px 14px 8px 0}
+body.touch #stam{top:calc(112px + var(--st));bottom:auto!important;padding:8px 0}
+body.touch #keyi{top:calc(150px + var(--st));bottom:auto!important}
+#bNext{font-size:13px!important}
+body.touch #bKick,body.touch #bNext{display:block!important;z-index:7}
+#bKick{width:66px;height:66px;right:calc(20px + var(--sr));bottom:calc(74px + var(--sb));font-size:15px;border-width:3px}
+#bNext{width:52px;height:52px;right:calc(98px + var(--sr));bottom:calc(58px + var(--sb))}
+#bKick.hot{background:rgba(255,224,138,.4);color:#000;border-color:#ffe08a}
 </style>
 </head>
 <body>
@@ -331,7 +342,8 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
   <div id="stick"><div id="knob"></div></div>
   <div id="tipL">MOVE</div><div id="tipR">LOOK</div>
   <button class="tb" id="bLight">◐</button>
-  <button class="tb" id="bNext">⇄</button>
+  <button class="tb" id="bNext">WPN</button>
+  <button class="tb" id="bKick">KICK</button>
   <button class="tb" id="bDash">SPRINT</button>
   <button class="tb" id="bAim">AIM</button>
   <button class="tb" id="bReload">R</button>
@@ -389,7 +401,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
       <tr><td>NOISE</td><td>Enemies hear you. Sprinting, splashing and gunfire bring them to look. Walk and they lose track of you.</td></tr><tr><td>DOORS</td><td>Close office doors to break line of sight. Barricade them to buy time — you'll hear them being battered.</td></tr><tr><td>PACK</td><td>Six slots for medkits and loose ammo. <span class="only-touch">Tap your ammo</span><span class="only-pc">Press E</span> to see the pack and drop things.</td></tr><tr><td>BREAKERS</td><td>Some floors have no power. Flip every breaker to bring the exit online.</td></tr><tr><td>THE OCCUPANT</td><td>Stay on a floor too long and something that cannot be killed starts hunting you. Hit the glowing sac in its chest to make it stagger, hold your light on it to slow it, and get out.</td></tr><tr><td>BLEEDING</td><td>Heavy hits make you bleed until a medkit closes the wound.</td></tr><tr><td>LIGHT</td><td>Your flashlight lasts about a minute and a half. Tap the battery to switch it off and save it.</td></tr><tr><td>LOCKERS</td><td>Supply lockers hold good loot, but prying them open is loud.</td></tr><tr><td>CHARGE STATIONS</td><td>Your flashlight slowly drains. Stand at a green wall station to recharge it — each one only holds so much.</td></tr><tr><td>MAGAZINES</td><td>Ammo you find is loose. Reloading swaps magazines; when none are loaded you thumb rounds in one at a time. Spare mags refill by hand when it's quiet.</td></tr>
       <tr><td>LAUNCHERS</td><td>The RPG-7 and Carl Gustaf fire one rocket at a time. Don't fire them at your feet. Frag grenades bounce, then blow after a short fuse.</td></tr>
       <tr><td>COMBOS</td><td>Chain kills fast for score multipliers. Headshots deal heavy damage.</td></tr>
-      <tr><td>KICK</td><td>Anything that gets right up on you gets kicked back automatically. It staggers them and breaks their attack.</td></tr>
+      <tr><td>KICK</td><td>Press KICK (V on keyboard) to boot back anything that gets right up on you. It staggers them and breaks their attack. The button lights up when something is in range.</td></tr>
       <tr><td>CRATES</td><td>Smash them for supplies. Red barrels explode.</td></tr>
       <tr><td>TAPES</td><td>The survey team that came before you left recordings. Find them all.</td></tr>
       <tr><td>SKITTERS</td><td>Small and fast. They peek around corners, spit, and dart back out of sight.</td></tr>
@@ -2938,7 +2950,7 @@ function updKick(dt){
   // automatic: something is right on top of you
   if(P.kickT<=0&&P.kickCd<=0&&P.alive){
     const near=kickTargets(-.25).filter(([e])=>(!(e.steady||e.heavy)||(e.holding&&e.holdT>.5))&&(e.aware&&!e.boss||(e.boss&&e.atkT<=0)));
-    if(near.length){ startKick(); P.kickAuto=true; }
+    P.kickHint=near.length>0;   // kicking is yours to do: the button lights when something is in range
   }
   if(P.kickT>0){
     P.kickT-=dt;
@@ -4953,6 +4965,7 @@ function animVM(dt){
   ANIM.pushT=Math.max(0,ANIM.pushT-dt); const pu=ANIM.push, pt=ANIM.pushT>0?1-ANIM.pushT/.7:0; pu.g.visible=ANIM.pushT>0;
   if(pu.g.visible){ const o=key3([[0,-.22,-.45,-.2],[.35,-.12,-.1,-.42],[.55,-.11,-.08,-.5],[1,-.24,-.45,-.22]],pt); pu.g.position.set(o[0],o[1],o[2]); pu.g.rotation.set(-.2,.25,.2);
     if(w){ const k=Math.sin(pt*Math.PI); w.g.position.x+=.05*k; w.g.position.y-=.04*k; w.g.rotation.z-=.25*k; } }
+  meleeArms();
 }
 function doorPush(){ ANIM.pushT=.7; }
 // the beam rides your stride: a bounce at each step, a sway between them, a lag when you turn
@@ -5176,7 +5189,7 @@ QAI.armored=(e,dt,dist,nx,nz,spd)=>{ e.willFlee=false; e.heavy=true;
   if(dist<e.d.r+PR+1.0&&e.cd<=0&&e.los){ e.atkT=1.3; e.mode='grab'; e.atkHit=false; e.atkClip='Attack2'; e.steady=true; e.grabDmg=0; vox(e,'attack'); return [0,0]; }
   let [mx,mz]=chaseDir(e); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; return [mx*spd,mz*spd]; };
 QMODE.grab=(e,dt,dist)=>{
-  if(!e.atkHit&&e.atkT<.95){ e.atkHit=true; if(dist<e.d.r+PR+1.1&&e.los){ e.holding=true; e.holdT=0; P.grabT=1.1; hurtPlayer(e.d.dmg*.5*LV.dmgMul*e.dmgM,e.x,e.z); msg(isTouch?'IT HAS YOU — SHOOT IT OR STRUGGLE FREE':'IT HAS YOU — [V] KICK OR SHOOT IT OFF','#ff6b6b'); } }
+  if(!e.atkHit&&e.atkT<.95){ e.atkHit=true; if(dist<e.d.r+PR+1.1&&e.los){ e.holding=true; e.holdT=0; P.grabT=1.1; hurtPlayer(e.d.dmg*.5*LV.dmgMul*e.dmgM,e.x,e.z); msg(isTouch?'IT HAS YOU — KICK OR HIT IT OFF':'IT HAS YOU — [V] KICK OR SHOOT IT OFF','#ff6b6b'); } }
   if(e.holding){ e.holdT=(e.holdT||0)+dt; P.grabT=Math.max(P.grabT,.1); const px=e.x+(P.x-e.x)/dist*(e.d.r+PR+.15), pz=e.z+(P.z-e.z)/dist*(e.d.r+PR+.15); P.x=lerp(P.x,px,.25); P.z=lerp(P.z,pz,.25); P.shake=Math.max(P.shake,1);
     e.squeezeT=(e.squeezeT||0)-dt; if(e.squeezeT<=0){ e.squeezeT=.45; hurtPlayer(e.d.dmg*.22*LV.dmgMul*e.dmgM,e.x,e.z,true); } }
   if(e.atkT<=0||(e.holding&&e.grabDmg>e.maxHp*.12)){ if(e.holding&&e.grabDmg>e.maxHp*.12){ e.painT=.6; vox(e,'pain'); } e.holding=false; P.grabT=0; e.steady=false; e.atkT=0; e.cd=R(1.2,1.8); }
@@ -5258,14 +5271,34 @@ function buildMeleeVM(id){
   const w=VM.list[0], gl=ASSET.melee&&ASSET.melee[id]; if(!w||!gl) return;
   for(const c of w.g.children.slice()) if(c!==w.mz) w.g.remove(c);
   const piv=new THREE.Group(); w.g.add(piv); const model=gl.scene.clone(true); model.traverse(o=>{ if(o.isMesh){ o.material=gunMat(o.material); } }); piv.add(model);
-  const n0=piv.children.length; VM.rArm(piv,[0,-.02,.03]);
-  // keep the gloved hand and cuff; the long sleeve swings through the camera on big swings
-  const added=piv.children.slice(n0); for(const c of added.slice(3)) piv.remove(c); const m=MELEE[id];
-  if(m.two){ const n1=piv.children.length; VM.lArm(piv,[-.005,-.01,.035]); for(const c of piv.children.slice(n1).slice(3)) piv.remove(c);
-    for(const c of added.slice(0,3)) c.position.y+=.17; piv.rotation.set(-.5,.15,.85); w.base.set(.1,-.22,-.5); }
-  else { piv.rotation.set(-.75,0,.32); w.base.set(.2,-.19,-.5); }
+  // a proper fist closed round the grip; the forearm is drawn separately so it always comes up from the body (see meleeArms)
+  const m=MELEE[id];
+  if(m.two){ w.fistR=meleeFist(piv,.15,1); w.fistL=meleeFist(piv,-.03,-1); piv.rotation.set(-.5,.15,.85); w.base.set(.1,-.22,-.5); }
+  else { w.fistR=meleeFist(piv,-.02,1); w.fistL=null; piv.rotation.set(-.75,0,.32); w.base.set(.2,-.19,-.5); }
   w.piv=piv; w.parts={}; w.model=model;
   const len=new THREE.Box3().setFromObject(model).max.y; w.mz.position.set(0,len*.8,0);
+}
+const ARMM={};
+function meleeFist(piv,gy,side){
+  if(!ARMM.glove){ ARMM.glove=lm(0x24201c); ARMM.knuck=lm(0x2e2924); ARMM.cuff=lm(0x2c2e27); ARMM.sleeve=lm(0x3a3d33); }
+  const g=new THREE.Group(); g.position.set(0,gy,0); const G=ARMM.glove, K=ARMM.knuck;
+  g.add(bx(.062,.088,.03,G,0,0,.03));                                   // back of the hand
+  for(let i=0;i<4;i++){ const y=-.033+i*.022, w=i===0?.058:i===3?.06:.066; g.add(bx(w,.02,.03,i%2?G:K,0,y,-.026)); g.add(bx(.02,.02,.05,G,side*.034,y,.002)); g.add(bx(.018,.02,.03,K,-side*.026,y,-.012)); } // fingers wrapped round the front
+  g.add(bx(.024,.03,.062,G,-side*.036,.046,.004,.15,0,0));               // thumb laid along the grip
+  g.add(bx(.06,.06,.045,ARMM.cuff,0,-.012,.066));                        // wrist
+  const wr=new THREE.Object3D(); wr.position.set(0,-.014,.085); g.add(wr); g.userData.wrist=wr; piv.add(g); return g;
+}
+// forearms: from each wrist back to where the elbow would be, below and beside the camera, so the arm always belongs to a body
+const _mw=new THREE.Vector3(), _md=new THREE.Vector3(), _my=new THREE.Vector3(0,1,0);
+function meleeArms(){
+  const w=VM.list[0], on=!!(w&&w.piv&&w.fistR&&P.weapon===0&&w.g.visible&&P.alive);
+  if(!ARMM.r){ if(!on) return; const mk=()=>{ const g=new THREE.CylinderGeometry(.026,.044,1,7); const a=new THREE.Mesh(g,ARMM.sleeve); a.frustumCulled=false; vmScene.add(a); const c=new THREE.Mesh(new THREE.CylinderGeometry(.028,.031,1,7),ARMM.cuff); c.frustumCulled=false; vmScene.add(c); return {a,c}; }; ARMM.r=mk(); ARMM.l=mk(); }
+  const put=(A,fist,ex,ey,ez)=>{ const vis=on&&!!fist; A.a.visible=A.c.visible=vis; if(!vis) return;
+    fist.userData.wrist.getWorldPosition(_mw); _md.set(ex,ey,ez).sub(_mw); const len=_md.length(); _md.multiplyScalar(1/len);
+    A.a.position.copy(_mw).addScaledVector(_md,len/2); A.a.scale.set(1,len,1); A.a.quaternion.setFromUnitVectors(_my,_md.clone().negate());
+    A.c.position.copy(_mw).addScaledVector(_md,.03); A.c.scale.set(1,.07,1); A.c.quaternion.copy(A.a.quaternion); };
+  if(on) w.g.updateMatrixWorld(true);
+  put(ARMM.r,on&&w.fistR,.36,-.52,.1); put(ARMM.l,on&&w.fistL,-.3,-.52,.1);
 }
 // ---- swing poses: [t, px,py,pz,rx,ry,rz] added to the held pose. rest -> wind-up -> impact -> follow-through -> rest
 // The curve runs through the keys without stopping at them, so the weapon is at full speed when it lands.
@@ -5741,6 +5774,7 @@ function updateHUD(dt){
   { const hh=H(P.weapon), sp=hh.box?sparesOf(P.weapon):null; setT('ammoR',!hm?'':sp?' '+sp.map(c=>c>=hh.mag*.6?'▮':c>0?'▯':'·').join('')+(P.ammo[w.ammo]?' +'+P.ammo[w.ammo]:''):' +'+P.ammo[w.ammo]); } $('ammoV').classList.toggle('empty',!!w.ammo&&(hm?P.mag[P.weapon]:P.ammo[w.ammo])<(w.cost||1));
   const wn=P.healT>0?'APPLYING MEDKIT…':P.plugged?`CHARGING ${Math.round(P.battery)}%`:P.reloadT>0?(P.rlMode==='thumb'?'LOADING ROUNDS…':P.rlMode==='shell'?'LOADING SHELLS…':'RELOADING…'):P.packing?'LOADING MAGS…':w.name; if(HUDC.wnLast!==wn){ HUDC.wnLast=wn; P.wnT=2.2; } P.wnT=Math.max(0,(P.wnT||0)-dt); setT('wname',wn); $('wname').classList.toggle('rl',P.reloadT>0); $('wname').style.opacity=(P.reloadT>0||P.packing||P.healT>0||P.charging||P.wnT>0)?1:0;
   $('batt').style.opacity=1; $('batt').classList.toggle('off',!P.light||!!P.plugged);
+  { const bk=$('bKick'); if(bk){ bk.classList.toggle('hot',!!P.kickHint&&P.kickCd<=0); bk.style.visibility=$('bNext').style.visibility=pickOpen?'hidden':''; } }
   setT('medV',String(P.medkits||0)); { const nb=(P.bleed||[]).length; $('bleedS').style.display=nb?'':'none'; if(nb) setT('bleedV','×'+nb); } $('medS').classList.toggle('busy',P.healT>0); $('medS').style.opacity=(P.medkits||0)>0?1:.35;
   P.tlT=Math.max(0,(P.tlT||0)-dt); $('tlFade').style.opacity=P.tlT>0?Math.min(1,P.tlT):0;
   if(HUDC.objLast!==$('obj').textContent){ HUDC.objLast=$('obj').textContent; P.tlT=6; }
@@ -5822,7 +5856,8 @@ function bindBtn(id,down,lookToo){ const b=$(id); b.addEventListener('pointerdow
 bindBtn('bFire',()=>{ IN.fire=true; },true);
 bindBtn('bDash',()=>{ MOT.sprintBtn=!MOT.sprintBtn; $('bDash').classList.toggle('lock',MOT.sprintBtn); });
 let nextHold=0;
-bindBtn('bNext',()=>{ clearTimeout(nextHold); nextHold=setTimeout(()=>{ nextHold=-1; openPicker(); },320); });
+bindBtn('bNext',()=>{ nextHold=-1; openPicker(); });
+bindBtn('bKick',()=>startKick());
 $('bNext').addEventListener('pointerup',()=>{ if(nextHold!==-1){ clearTimeout(nextHold); if(state==='play'&&!pickOpen) cycleWeapon(1); } nextHold=0; });
 $('ctxB').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); ctxPrimary(); });
 $('ctxB2').addEventListener('pointerdown',e=>{ e.stopPropagation(); e.preventDefault(); barricadeAction(); });
