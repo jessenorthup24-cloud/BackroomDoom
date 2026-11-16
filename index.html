@@ -80,6 +80,12 @@ linear-gradient(45deg,transparent 46%,#fff 46%,#fff 54%,transparent 54%),linear-
 #batt{position:absolute;left:calc(16px + var(--sl));bottom:calc(66px + var(--sb));display:flex;align-items:center;gap:6px;font-size:15px}
 #battBar{width:70px;height:8px;border:1px solid rgba(255,224,138,.7);padding:1px}
 #battFill{height:100%;background:#ffe08a;width:100%}
+#stam{position:absolute;left:calc(130px + var(--sl));bottom:calc(66px + var(--sb));display:flex;align-items:center;gap:6px;font-size:15px;color:#bfe3c8;transition:opacity .5s;opacity:.45;z-index:6;padding:10px 0}
+#stamBar{width:70px;height:8px;border:1px solid rgba(191,227,200,.7);padding:1px}
+#stamFill{height:100%;background:#bfe3c8;width:100%}
+#stam.use{opacity:1}#stam.low #stamFill{background:#ff8a50}#stam.low{color:#ff8a50;animation:kpp .6s infinite}
+body.touch #stam{bottom:calc(56px + var(--sb))}
+#dashBar{display:none!important}
 #batt.low #battFill{background:#ff5050}
 #keyi{position:absolute;left:calc(16px + var(--sl));bottom:calc(86px + var(--sb));font-size:17px;color:#6fc8ff;letter-spacing:2px;text-shadow:0 0 8px #2a8cff}
 #wbar{position:absolute;left:50%;bottom:calc(10px + var(--sb));transform:translateX(-50%);display:flex;gap:6px;pointer-events:auto}
@@ -304,6 +310,7 @@ body.touch #br{right:calc(16px + var(--sr))!important;left:auto!important;transf
   <div id="msgs"></div>
   <div id="keyi" class="hidden">▣ KEYCARD</div>
   <div id="batt"><span>◐</span><div id="battBar"><div id="battFill"></div></div></div>
+  <div id="stam"><span>≋</span><div id="stamBar"><div id="stamFill"></div></div></div>
   <div id="bl">
     <div class="stat"><span class="ic">✚</span><span class="v" id="hpV">100</span></div>
     <div class="stat" id="bleedS" style="display:none;color:#ff5a4a"><span class="ic">◆</span><span class="v" id="bleedV">×1</span></div>
@@ -2415,7 +2422,7 @@ function fire(){
   buzz(w.id==='sawed'?60:w.id==='shotgun'||w.id==='bolt'?35:w.id==='nailer'||w.flame||w.arc?6:15);
   noiseAlert(P.x,P.z,(w.alert||24)*(UP.suppressor&&(w.id==='pistol'||w.id==='nailer')?.28:1));
   let [by,bp]=assistAim(); [by,bp]=aimSteer(by,bp,w);
-  const acc=(1-.6*P.ads)*(1+.7*clamp(Math.hypot(P.vx,P.vz)/6.3,0,1))*(P.dashT>0?1.8:1);
+  const acc=(1-.6*P.ads)*(1+.7*clamp(Math.hypot(P.vx,P.vz)/6.3,0,1))*(P.dashT>0?1.8:1)*(1+(P.panic||0)*.9);
   if(w.proj){ fireProj(w,by,bp); }
   else if(w.pierce){ pierceShot(aimDir(w.spread*acc,by,bp),w.dmg,w); P.vx+=Math.sin(P.yaw)*3; P.vz+=Math.cos(P.yaw)*3; }
   else if(w.arc) arcShot(w,by,bp);
@@ -2568,14 +2575,20 @@ function updPacking(dt){
 }
 function applyRecoil(i){
   const h=H(i); if(!h) return;
-  const a=1-.35*P.ads, kv=h.camUp*a*R(.85,1.15)*(rand()<.08?1.3:1);
-  // the muzzle climbs; the shooter drags most of it back down, not all of it
-  P.pitch=Math.min(.62,P.pitch+kv*.5); P.rcl+=kv*.5; P.rcPv+=kv*13;
-  P.rcDrift=clamp((P.rcDrift||0)*.7+R(-1,1)*.5,-1,1);
-  P.rcYv+=(P.rcDrift*h.side*1.1+R(-1,1)*h.side*.35)*a*9;
+  // panic: firing fast stacks up and the officer's control falls apart
+  const pn=P.panic=Math.min(1,(P.panic||0)+.1+h.camUp*1.6+(h.mag>=20?.04:0));
+  const a=1-.35*P.ads, kv=h.camUp*a*R(.6,1.55)*(1+pn*.55)*(rand()<.1?R(1.3,1.8):1);
+  // the muzzle climbs; the shooter drags some of it back down — less of it the more panicked they are
+  P.pitch=Math.min(.62,P.pitch+kv*.5); P.rcl+=kv*(.5-.28*pn); P.rcPv+=kv*13*R(.8,1.25);
+  P.rcDrift=clamp((P.rcDrift||0)*.45+R(-1,1)*.95,-1,1);
+  const sideK=h.side+.006+h.camUp*.25;
+  P.rcYv+=(P.rcDrift*sideK*1.2+R(-1,1)*sideK*(.5+1.5*pn))*a*9;
+  // now and then the gun just gets away from them
+  if(rand()<.05+.12*pn){ P.rcYv+=R(-1,1)*(.05+.1*pn)*a*9; P.rcPv+=R(-.4,1)*(.04+.06*pn)*a*13; P.shkKick=1; }
   // the gun: muzzle flips up around the grip and slams back into the hands, then wobbles back down
-  const ad=1-.2*P.ads, flip=Math.min(.6,h.ku*.052*ad*R(.85,1.15)*(rand()<.12?1.3:1)), back=h.kb*.05*ad*R(.9,1.1);
-  RCL.vrx+=flip*RCL_W; RCL.vpz+=back*RCL_W; RCL.vry+=R(-1,1)*flip*.25*RCL_W; RCL.vrz+=R(-1,1)*flip*.45*RCL_W;
+  const ad=1-.2*P.ads, flip=Math.min(.7,h.ku*.052*ad*R(.65,1.45)*(1+pn*.4)*(rand()<.12?1.35:1)), back=h.kb*.05*ad*R(.75,1.3);
+  RCL.vrx+=flip*RCL_W; RCL.vpz+=back*RCL_W; RCL.vry+=R(-1,1)*flip*(.35+.5*pn)*RCL_W; RCL.vrz+=R(-1,1)*flip*(.6+.9*pn)*RCL_W;
+  SPR.vpx+=R(-1,1)*.06*(.4+pn); SPR.vpy+=R(-.5,1)*.05*(.4+pn);
   SPR.vry+=R(-1,1)*h.kr*.02;
   // the body takes the jolt and the chest camera with it
   P.camKickV+=kv*R(7,10); P.camRollV+=R(-1,1)*h.kr*.022; P.jolt=Math.min(1,(P.jolt||0)+h.ku*.05*ad);
@@ -2591,6 +2604,10 @@ function updRecoil(dt){
     P.camRollV+=(-170*P.camRoll-9*P.camRollV)*hd; P.camRoll+=P.camRollV*hd;
   }
   const r=P.rcl*(1-Math.exp(-dt*3.2)); P.rcl-=r; P.pitch-=r*.8;
+  const firing=P.fireCd>0; P.panic=Math.max(0,(P.panic||0)-dt*(firing?.25:.9));
+  P.shkT=(P.shkT||0)+dt; const T=P.shkT, pn=P.panic, amp=(.004+.016*pn)*(1-.5*P.ads)*(pn>.02?1:0);
+  const ny=(Math.sin(T*2.3+1.7)+Math.sin(T*5.1)*.6+Math.sin(T*9.7+.4)*.25)*amp, np=(Math.sin(T*2.9+.3)+Math.sin(T*6.3+2.1)*.5+Math.sin(T*11.3)*.2)*amp*.7;
+  P.yaw+=ny-(P.shkY||0); P.pitch=clamp(P.pitch+np-(P.shkP||0),-.62,.62); P.shkY=ny; P.shkP=np;
 }
 
 // ---- spring-driven viewmodel
@@ -4114,12 +4131,26 @@ function updStalker(dt){
 }
 // ---- bleeding: deep hits keep hurting until a medkit closes them (or they slowly clot)
 function addBleed(n){ P.bleed=P.bleed||[]; for(let i=0;i<n;i++) if(P.bleed.length<4) P.bleed.push(R(22,32)); if(n>0) msg('YOU\'RE BLEEDING — USE A MEDKIT','#ff6b6b'); }
+function smellBlood(x,z,rad){
+  for(const e of LV.enemies){ if(e.dead||e.mimic||e.lurk) continue; const d=Math.hypot(e.x-x,e.z-z); if(d>=rad) continue;
+    if(e.stalker){ if(!e.hunt){ e.lkx=x; e.lkz=z; e.smellT=Math.max(e.smellT||0,4); } continue; }
+    if(e.hunt) continue;
+    if(!e.aware){ e.aware=true; e.cd=Math.max(e.cd,.4); e.ambush=false; if(rand()<.5) vox(e,'idle'); }
+    e.searching=true; e.arrived=false; e.lkx=x+R(-1,1); e.lkz=z+R(-1,1); }
+}
 function updBleed(dt){
   if(!P.alive||!P.bleed||!P.bleed.length) return;
   for(let i=P.bleed.length-1;i>=0;i--){ P.bleed[i]-=dt; if(P.bleed[i]<=0) P.bleed.splice(i,1); }
   const n=P.bleed.length; if(!n) return;
   P.hp-=dt*.9*n; P.bleedDrip=(P.bleedDrip||0)-dt;
-  if(P.bleedDrip<=0){ P.bleedDrip=R(.5,1.1)/n; addDecal('blood',P.x+R(-.2,.2),.015,P.z+R(-.2,.2),0,1,0,R(.08,.16)); P.hurtFlash=Math.min(1,P.hurtFlash+.08); }
+  if(P.bleedDrip<=0){ P.bleedDrip=R(.35,.75)/Math.sqrt(n);
+    const hx=P.x-Math.sin(P.yaw)*.25+Math.cos(P.yaw)*.18, hz=P.z-Math.cos(P.yaw)*.25-Math.sin(P.yaw)*.18;
+    for(let k=0;k<RI(2,4);k++) PS.spawn(hx+R(-.05,.05),1.0,hz+R(-.05,.05),R(-.1,.1),R(-1.5,-.4),R(-.1,.1),.5,0,0,R(.5,.8),14);
+    addDecal('blood',P.x+R(-.25,.25),.015,P.z+R(-.25,.25),0,1,0,R(.16,.32)*(1+n*.15)); P.hurtFlash=Math.min(1,P.hurtFlash+.06); }
+  // the smell carries through walls: anything within range comes looking
+  P.scentT=(P.scentT||0)-dt;
+  if(P.scentT<=0){ P.scentT=R(1.6,2.4); smellBlood(P.x,P.z,10+5*n);
+    if(!P.scentTold){ P.scentTold=true; setTimeout(()=>{ if(P.bleed&&P.bleed.length) msg('THEY CAN SMELL YOUR BLOOD — PATCH UP','#ff6b6b'); },2500); } }
   if(P.hp<=0){ P.hp=0; playerDie(); }
 }
 // ---- supply lockers: loud to pry open, worth it if nothing hears you
@@ -4890,7 +4921,7 @@ function updateHUD(dt){
   P.pickFlash=Math.max(0,P.pickFlash-dt*2.5); $('fx-pick').style.opacity=P.pickFlash.toFixed(3);
   const low=P.hp<P.maxHp*.3&&P.alive?(.5+Math.sin(LV.t*6)*.3):0; $('fx-low').style.opacity=low.toFixed(3);
   const hf=P.hp/P.maxHp; $('fx-crack').style.opacity=(hf<.5?Math.min(.6,(.5-hf)*1.8):0).toFixed(2);
-  const st=MOT.stamina/100; $('dashI').style.width=(st*100)+'%'; $('dashBar').style.opacity=st<.99?1:0; $('dashBar').classList.toggle('low',st<.2);
+  const st=MOT.stamina/100; $('stamFill').style.width=(st*100).toFixed(1)+'%'; const se=$('stam'); se.classList.toggle('use',st<.99||MOT.sprint); se.classList.toggle('low',st<.2);
 }
 // ---------------- map --------------------------------------------------
 let mapOn=false;
