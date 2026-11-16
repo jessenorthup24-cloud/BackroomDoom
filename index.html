@@ -5331,31 +5331,62 @@ function meleeStrike(){
   for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const dx=e.x-P.x, dz=e.z-P.z, l=Math.hypot(dx,dz), d=l-e.d.r*e.scale; if(d>m.range) continue;
     if(l>.05&&(dx*fx+dz*fz)/l<(hz?Math.min(m.arc-.25,.2):m.arc)) continue; if(e.ceil&&P.pitch<.25) continue; if(!los(P.x,P.z,e.x,e.z)) continue; cands.push([e,d,l]); }
   cands.sort((a,b)=>a[1]-b[1]);
-  let landed=0, killed=0; MS.cut=0;
+  let landed=0, killed=0; MS.cut=0; MS.bone=0;
   for(const [e,d,l] of cands.slice(0,m.hits+(hz?1:0))){
     const nx=(e.x-P.x)/(l||1), nz=(e.z-P.z)/(l||1), sc=e.scale*(e.rig&&e.rig.sc?1:1);
     let hy=clamp(camPos.y+Math.tan(P.pitch)*l-e.y,(e.d.hy0||0)*sc+.1,e.d.hy1*sc-.05); const head=hy>=e.d.head[0]*sc;
-    const hx=e.x-nx*e.d.r*.8, hz=e.z-nz*e.d.r*.8, Y=e.y+hy;
+    const hx=e.x-nx*e.d.r*.8, hz2=e.z-nz*e.d.r*.8, Y=e.y+hy;
     // stabbing something that isn't facing you goes deep
     let back=false; if(m.style==='stab'&&e.rig){ const fxE=Math.sin(e.rig.yaw), fzE=Math.cos(e.rig.yaw); back=(fxE*nx+fzE*nz)>.3; }
-    const fin=MS.fin, dmg=m.dmg*R(.9,1.1)*(head?1.5:1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1)*(hz?1.3:1);
+    const fin=MS.fin, base=m.dmg*R(.9,1.1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1)*(hz?1.3:1);
+    // ---- where it landed: head, an arm, a leg, or the trunk
+    const sv=!e.boss&&!e.stalker&&e.rig&&e.rig.glb, rg=e.rig, has=n=>sv&&rg.boneBy[n]&&!rg.lostBones.includes(rg.boneBy[n]), other=q=>q==='Left'?'Right':'Left';
+    const hf=hy/(e.d.hy1*sc), off=-((e.x-P.x)*Math.cos(P.yaw)-(e.z-P.z)*Math.sin(P.yaw)), wide=Math.abs(off)>e.d.r*e.scale*.38;
+    let zone='torso', limb=null; e.wnd=e.wnd||{};
+    if(sv){
+      if(head&&has('Head')){ zone='head'; limb='Head'; }
+      else if(hf<.42){ const q=off<0?'Right':'Left'; limb=has(q+'UpperLeg')?q+'UpperLeg':has(other(q)+'UpperLeg')?other(q)+'UpperLeg':null; if(limb) zone='leg'; }
+      else if(wide||(hz&&rand()<.3)){ const q=wide?(off<0?'Right':'Left'):(MS.side>0?'Left':'Right'); limb=has(q+'UpperArm')?q+'UpperArm':has(other(q)+'UpperArm')?other(q)+'UpperArm':null; if(limb) zone='arm'; } }
+    // ---- what it did there. A clean cut takes the part off; otherwise the edge stops on bone and the next one finishes it
+    let dmg=base*(head?1.5:1), out='', cap=e.maxHp/UP.dmg;
+    if(sv){
+      if(zone==='torso'){ dmg=back?base:Math.min(base,cap*(heavy?.6:fin?.5:.38)); e.gash=(e.gash||0)+1; }
+      else if(zone==='head'){
+        const clean=e.wnd.Head||rand()<(blade?clamp(m.sever+.12+(fin?.2:0),.25,.95):.2+(fin?.25:0)+(m.dmg>60?.1:0));
+        if(clean) out='sever'; else { out='bone'; e.wnd.Head=1; dmg=Math.max(1,Math.min(base*1.6,(e.hp-Math.max(6,e.maxHp*.1))/UP.dmg)); } }
+      else { const cut=cap*(zone==='arm'?.3:.34);
+        if(blade){ const clean=e.wnd[limb]||rand()<clamp(m.sever+.05+(fin?.2:0),.15,.95); if(clean){ out='sever'; dmg=Math.min(base,cut*1.3); } else { out='bone'; e.wnd[limb]=1; dmg=Math.min(base*.8,cut); } }
+        else { dmg=Math.min(base*.8,cut); if(!e.wnd[limb]&&rand()<.55){ out='break'; e.wnd[limb]=1; } } } }
     // they go the way the weapon was going: sideways off a slash, buckled under a chop, lifted by a rising cut
-    const lethal=e.hp<=dmg*(head?2.1:1), movable=!e.boss&&!e.stalker&&!e.steady, kn=m.knock*(e.d.mass<1.5?1:.6)*(fin?1.7:1)*(lethal?1.8:1);
+    const lethal=e.hp<=dmg*(head&&!sv?2.1:1)*UP.dmg||(out==='sever'&&zone==='head'), movable=!e.boss&&!e.stalker&&!e.steady, kn=m.knock*(e.d.mass<1.5?1:.6)*(fin?1.7:1)*(lethal?1.8:1);
     if(movable&&MS.pose==='slash'){ const lat=(3+kn*.9)/e.d.mass; e.kvx+=-nz*MS.side*lat; e.kvz+=nx*MS.side*lat; }
-    e.lastHit={x:hx,y:Y,z:hz,src:blade?'blade':'blunt',head,t:LV.t};
-    if(e.rig&&(e.rig.glb||e.rig.elk)) glbHit(e,hx,Y,hz,dmg,blade?'sawed':'shotgun',head); else rigHit&&e.rig&&rigHit(e,hx,Y,hz,dmg,'pipe',head);
-    const hpBefore=e.hp; hurtEnemy(e,dmg,nx,nz,kn*(MS.pose==='slash'?.5:MS.pose==='chop'?.6:1),blade?'blade':'pipe',head); landed++; if(e.dead) killed++;
-    if(!e.dead&&movable){ e.painT=Math.max(e.painT,heavy?.6:blade?.24:.45,fin?.7:0); if(fin||heavy){ e.atkT=0; e.mode=''; e.cd=Math.max(e.cd,.7); } }
+    e.lastHit={x:hx,y:Y,z:hz2,src:blade?'blade':'blunt',head,t:LV.t};
+    if(e.rig&&(e.rig.glb||e.rig.elk)) glbHit(e,hx,Y,hz2,dmg,blade?'sawed':'shotgun',head); else rigHit&&e.rig&&rigHit(e,hx,Y,hz2,dmg,'pipe',head);
+    // whether they reel is decided below, not by the generic flinch
+    const st0=e.steady; if(sv) e.steady=true; hurtEnemy(e,dmg,nx,nz,kn*(MS.pose==='slash'?.5:MS.pose==='chop'?.6:1),blade?'blade':'pipe',sv?false:head); e.steady=st0; landed++;
+    if(sv){
+      if(e.dead&&limb&&!out&&(blade||zone==='head')) out='sever';       // the blow that kills them takes what it hit
+      if(out==='sever'&&has(limb)){ MS.cut=1; glbSever(e,limb);
+        if(zone==='head'){ if(!e.dead) hurtEnemy(e,99999,nx,nz,kn,blade?'blade':'pipe',true); msg(blade?'DECAPITATED':'SKULL CRUSHED','#ff8a6a'); }
+        else if(!e.dead){ if(zone==='arm') e.dmgM*=.7; else { e.downT=99; e.legless=true; } vox(e,'pain'); } }
+      else if(out==='bone'){ MS.bone=1; meleeBone(hx,Y,hz2,e); }
+      else if(out==='break'){ MS.bone=1; meleeBone(hx,Y,hz2,e); if(zone==='arm') e.dmgM*=.75; else if(zone==='leg'){ e.slowT=999; e.slowK=.55; } }
+      if(heavy&&e.dead&&rand()<.4) glbGore(e,'blade',false); }
+    if(e.dead) killed++;
+    // sometimes they reel: always off bone, a lost limb or a finisher; otherwise more likely the more they've been opened up
+    if(!e.dead&&movable){
+      const reel=out||fin||rand()<(heavy?.7:zone==='torso'?(blade?.2:.4)+.12*Math.min(3,(e.gash||1)-1):.5)||!sv&&m.kind==='blunt';
+      if(reel){ const big=fin||heavy||out==='sever'; e.painT=Math.max(e.painT,big?.85:.55); e.atkT=0; e.mode=''; e.cd=Math.max(e.cd,big?.9:.7); const kb=(big?3.5:2)/e.d.mass; e.kvx+=nx*kb; e.kvz+=nz*kb; if(e.painSndT<=0){ vox(e,'pain'); e.painSndT=.35; } }
+      else e.painT=Math.max(e.painT,.08); }
     P.meleeGore=Math.min(1,(P.meleeGore||0)+(blade?.1:.05)); if(l<2&&(blade||fin)) screenBlood(e.dead?.1:.04);
-    meleeFx(e,hx,Y,hz,nx,nz,m,head,blade);
-    if(!e.boss&&!e.stalker&&e.rig&&e.rig.glb){ meleeSever(e,m,hy/(e.d.hy1*sc),head,blade,heavy,hpBefore); }
-    if(m.bleed&&!e.dead){ e.mBleed=Math.max(e.mBleed||0,2.5); }
-    if(m.kind==='blunt'&&!e.dead&&!e.boss){ e.painT=Math.max(e.painT,.45); if(!e.steady){ e.atkT=0; e.mode=''; } e.cd=Math.max(e.cd,.6); }
+    meleeFx(e,hx,Y,hz2,nx,nz,m,head,blade);
+    if(blade&&!e.dead&&(m.bleed||out)){ e.mBleed=Math.max(e.mBleed||0,2.5+(e.gash||0)+(out?2:0)); }
   }
   for(const p of LV.props){ if(!p.alive) continue; const dx=p.x-P.x, dz=p.z-P.z, l=Math.hypot(dx,dz); if(l<m.range+.3&&(dx*fx+dz*fz)/(l||1)>.4){ hitProp(p,m.dmg*.6); landed++; } }
   if(landed){ const fin=MS.fin, big=heavy||fin;
     // the weapon bites: it slows through flesh, bounces off with something blunt, and time catches for a beat
     MS.drag=m.style==='stab'||MS.pose==='stab'?.13:heavy?.12:blade?.085:.05; MS.dragK=blade?.14:.3; MS.kv+=blade?(heavy?5:2.6):8.5;
+    if(MS.bone){ MS.drag=blade?.2:.09; MS.dragK=.05; MS.kv+=5; }
     meleeSlow(MS.cut?.2:killed?.12:big?.07:.045,MS.cut?.2:killed?.3:.4);
     P.shake=Math.max(P.shake,big?4.4:2.8); P.camKickV+=(MS.pose==='upper'?-1:1)*(big?2.4:1.4); P.camRollV+=-MS.side*(MS.pose==='slash'?1:.3)*(big?.9:.5); MOT.spv-=heavy?.6:.35; buzz(big?[25,20,45]:30); meleeStain();
     if(fin||killed){ P.fov=Math.max(P.fov||0,fin&&killed?3:1.8); }
@@ -5384,10 +5415,13 @@ function meleeSever(e,m,hf,head,blade,heavy,hp0){
   const leg=has('LeftUpperLeg')?'LeftUpperLeg':has('RightUpperLeg')?'RightUpperLeg':null; if(leg&&blade){ sev(e,leg); if(!e.dead){ e.downT=99; e.legless=true; vox(e,'pain'); } }
   if(heavy&&e.dead&&rand()<.5) glbGore(e,'blade',false);
 }
+// the edge stops on bone: chips, a crack, and the weapon jars in the hand
+function meleeBone(x,y,z,e){ for(let k=0;k<9;k++) PS.spawn(x,y,z,R(-2.5,2.5),R(.5,3.5),R(-2.5,2.5),.9,.86,.74,R(.25,.5),12);
+  if(AU.on){ const o=dest(e,1); woodCrack(o,.6,0); thud(o,140,.5,0,.07); } buzz([15,10,35]); }
 function meleeBreak(){ const m=MELEE[P.melee]; msg(`THE ${m.name} BREAKS`,'#ff8a6a'); SFX.crate&&SFX.crate(P); P.shake=Math.max(P.shake,1.5);
   for(let k=0;k<10;k++) sparks(P.x-Math.sin(P.yaw)*.6,1.1,P.z-Math.cos(P.yaw)*.6,0,0,1); equipMelee('pipe'); }
 // bleeding cuts, and legless monsters drag themselves
-function updMelee(dt){ for(const e of LV.enemies){ if(e.dead||!(e.mBleed>0)) continue; e.mBleed-=dt; e.mbT=(e.mbT||0)-dt; if(e.mbT<=0){ e.mbT=.5; hurtEnemy(e,4,0,0,0,'bleed'); const g=GORE[e.d.gore].b; PS.spawn(e.x,e.y+1,e.z,R(-.3,.3),R(-.5,0),R(-.3,.3),g[0],g[1],g[2],.6,10); if(rand()<.4) addDecal(GORE[e.d.gore].decal||'blood',e.x+R(-.3,.3),.015,e.z+R(-.3,.3),0,1,0,R(.2,.4)); } }
+function updMelee(dt){ for(const e of LV.enemies){ if(e.dead||!(e.mBleed>0)) continue; e.mBleed-=dt; e.mbT=(e.mbT||0)-dt; if(e.mbT<=0){ e.mbT=.5; hurtEnemy(e,3+2*Math.min(4,e.gash||1),0,0,0,'bleed'); const g=GORE[e.d.gore].b; PS.spawn(e.x,e.y+1,e.z,R(-.3,.3),R(-.5,0),R(-.3,.3),g[0],g[1],g[2],.6,10); if(rand()<.4) addDecal(GORE[e.d.gore].decal||'blood',e.x+R(-.3,.3),.015,e.z+R(-.3,.3),0,1,0,R(.2,.4)); } }
   for(const e of LV.enemies){ if(e.legless&&!e.dead) e.downT=Math.max(e.downT,1); } }
 // ---- finding them: lying on the floor, picked up by walking over them; your old one is left behind
 function meleePickup(kind){
