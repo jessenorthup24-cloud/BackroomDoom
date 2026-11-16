@@ -1920,7 +1920,7 @@ const AFFIX={
 };
 function enemyTypes(L){
   const t=['hollow','hollow','crawler'];
-  if(L>=1) t.push('crawler','bloat','skitter'); if(L>=2) t.push('eel'); if(L>=3) t.push('grinner','hanger','skitter','mutant','angler'); if(L>=5) t.push('diver','eel'); if(L>=6) t.push('brute','mutant'); if(L>=9) t.push('brute','diver'); if(L>=5) t.push('hanger'); if(L>=6) t.push('grinner','bloat'); if(L>=9) t.push('mannequin'); if(L>=12) t.push('mannequin','crawler');
+  if(L>=1) t.push('crawler','bloat','skitter'); if(L>=2) t.push('eel','wrapper'); if(L>=7) t.push('wrapper'); if(L>=3) t.push('grinner','hanger','skitter','mutant','angler'); if(L>=5) t.push('diver','eel'); if(L>=6) t.push('brute','mutant'); if(L>=9) t.push('brute','diver'); if(L>=5) t.push('hanger'); if(L>=6) t.push('grinner','bloat'); if(L>=9) t.push('mannequin'); if(L>=12) t.push('mannequin','crawler');
   if(LV&&LV.anom==='swarm') t.push('crawler','crawler','crawler','crawler');
   return t;
 }
@@ -1934,7 +1934,9 @@ function spawnEnemy(type,i,j,aware,affix){
     los:false,losT:R(0,.3),voiceT:R(2,8),vx:0,vz:0,kvx:0,kvz:0,wanT:0,wdx:0,wdz:0,strafe:rand()<.5?1:-1,strT:0,blinked:false,y:0,moving:false,painSndT:0,boss:!!d.boss,gone:false,
     flashT:0,jig:0,hunt:false,searching:false,willFlee:rand()<.45,ambush:false,burstT:0,burn:0,burnTick:0,shock:0,affix:affix||null,spd:1,dmgM:1,scale:1,sk1:R(3,5),sk2:R(6,9),sk3:R(8,12),phase:1,summoned:0,watched:false,tint:[1,1,1],deathKind:'normal'};
   if(e.affix){ const a=AFFIX[e.affix]; e.tint=a.col; e.hp*=1.4; if(e.affix==='swift') e.spd=1.45; if(e.affix==='brute'){ e.hp*=1.6; e.dmgM=1.4; e.scale=1.18; } e.maxHp=e.hp; }
+  if(SPAWN_OPT){ Object.assign(e,SPAWN_OPT); SPAWN_OPT=null; }
   spr.scale.set(d.h*d.ar*e.scale,d.h*e.scale,1);
+  if(type==='angler'&&!aware){ e.luring=true; e.idleClip='Lure'; }
   if(type==='crawler'&&LV.L>=1&&rand()<.4){ e.ai='ceiling'; e.groundT=R(2,4); if(rand()<.5){ e.ceil=true; e.y=WALLH-d.h*e.scale; } }
   if(type==='mimic'){ e.mimic=true; e.ambush=true; e.aware=false; }
   if(d.ai==='ceiling'||d.ceil){ e.ceil=true; e.y=WALLH-d.h*e.scale; }
@@ -1971,14 +1973,15 @@ function hurtEnemy(e,dmg,dx,dz,knock,src,head){
   dmg*=UP.dmg*((UP.adren&&P.hp<P.maxHp*.3)?1.4:1);
   if(head) dmg*=2.1+UP.headhunter*.6;
   if(e.vuln>0&&e.ceil===false) dmg*=1.6;
+  dmg=quirkDmg(e,dmg,dx,dz,src,head);
   if(e.type==='mannequin'&&!e.watched) dmg*=.6;
   e.hp-=dmg; alertEnemy(e);
   if(knock){ const k=knock/e.d.mass; e.kvx+=dx*k; e.kvz+=dz*k; }
-  e.flashT=.07; e.jig=1; if(dmg>e.maxHp*.22&&!e.boss&&e.mode!=='lunge'){ e.painT=Math.max(e.painT,.35); e.atkT=0; e.mode=''; }
+  e.flashT=.07; e.jig=1; if(dmg>e.maxHp*.22&&!e.boss&&e.mode!=='lunge'&&!e.steady){ e.painT=Math.max(e.painT,.35); e.atkT=0; e.mode=''; }
   if(UP.pyro&&src!=='burn'&&rand()<UP.pyro) ignite(e,3);
   hitMarker(head?'head':false);
   if(e.hp<=0){ killEnemy(e,dmg,src,head); return dmg; }
-  if(rand()<e.d.pain&&e.mode!=='lunge'&&e.mode!=='swell'&&src!=='burn'){ e.painT=.16; if(!e.boss){ e.atkT=0; e.mode=''; } }
+  if(rand()<e.d.pain&&e.mode!=='lunge'&&e.mode!=='swell'&&src!=='burn'&&!e.steady){ e.painT=.16; if(!e.boss){ e.atkT=0; e.mode=''; } }
   if(e.painSndT<=0){ vox(e,'pain'); e.painSndT=.35; }
   if(e.boss) bossHurt(e);
   return dmg;
@@ -2023,6 +2026,8 @@ function killEnemy(e,dmg,src,head){
   // drops
   const sc=Math.round((d.scrap+(e.affix?4:0))*(.7+rand()*.6)); for(let k=0;k<Math.min(8,sc);k++) dropScrap(e.x+R(-.4,.4),e.z+R(-.4,.4),Math.ceil(sc/Math.min(8,sc)));
   if(e.type==='bloat'){ explode(e.x,1,e.z,3.8,75,e); }
+  if(e.type==='mutant'&&!e.larva) setTimeout(()=>{ if(LV) mutantBurst(e); },350);
+  if(e.holding){ e.holding=false; P.grabT=0; }
   if(e.affix==='volatile'||(UP.chain&&rand()<UP.chain&&!e.boss)) setTimeout(()=>{ if(LV) explode(e.x,1,e.z,3,55,e); },120);
   if(e.boss){ bossDeath(e); }
   else { const r=rand(); if(e.affix||r<.2){ const opts=['bullets']; for(const k of ['shells','shells','nails','bolts','cells','fuel','flares','magnum','rifle','rifle']) if(ownsAmmo(k)) opts.push(k); dropItem(pick(opts),e.x+R(-.3,.3),e.z+R(-.3,.3)); }
@@ -2083,7 +2088,8 @@ function updEnemy(e,dt){
   else if(e.painT>0){}
   else if(e.atkT>0){
     e.atkT-=dt;
-    if(e.mode==='melee'){ if(!e.atkHit&&e.atkT<.3){ e.atkHit=true; if(dist<d.r+PR+(d.reach||1.0)&&e.los) hurtPlayer(d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); } if(e.atkT<=0) e.cd=.7; }
+    if(QMODE[e.mode]){ const r=QMODE[e.mode](e,dt,dist,nx,nz); if(r){ mx=r[0]; mz=r[1]; e.moving=!!(mx||mz); } }
+    else if(e.mode==='melee'){ if(!e.atkHit&&e.atkT<.3){ e.atkHit=true; if(dist<d.r+PR+(d.reach||1.0)&&e.los) hurtPlayer(d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); } if(e.atkT<=0) e.cd=.7; }
     else if(e.mode==='lunge'){ mx=e.lx; mz=e.lz; e.moving=true; if(!e.atkHit&&dist<d.r+PR+.35){ e.atkHit=true; hurtPlayer(d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); e.lx*=.2; e.lz*=.2; } if(e.atkT<=0) e.cd=R(1.1,1.7); }
     else if(e.mode==='shoot'){ if(!e.atkHit&&e.atkT<.2){ e.atkHit=true; shootOrb(e,0,7.5+LV.L*.25); } if(e.atkT<=0) e.cd=R(1.9,2.7); }
     else if(e.mode==='swell'){ if(e.atkT<=0){ e.hp=0; killEnemy(e,999,'self'); return; } }
@@ -2093,7 +2099,8 @@ function updEnemy(e,dt){
   else if(e.aware){
     const ai=e.ai||d.ai;
     if(e.affix==='phantom'&&!e.los&&dist>9){ e.sk1-=dt; if(e.sk1<=0){ e.sk1=R(4,7); const c=findSpawnNear(P.x,P.z,5,8,true); if(c>=0){ e.x=(c%LV.W+.5)*C; e.z=(((c/LV.W)|0)+.5)*C; SFX.whisper(e); } } }
-    if(ai==='melee'){
+    if(QAI[ai]){ [mx,mz]=QAI[ai](e,dt,dist,nx,nz,spd); }
+    else if(ai==='melee'){
       if(dist<d.r+PR+.75&&e.cd<=0&&e.los){ e.atkT=.85; e.mode='melee'; e.atkHit=false; vox(e,'attack'); }
       else { const lurch=(e.los&&dist<7)?1.7:1; [mx,mz]=chaseDir(e); mx*=spd*lurch; mz*=spd*lurch; e.moving=true; }
     } else if(ai==='lunge'){
@@ -2126,7 +2133,7 @@ function updEnemy(e,dt){
     if(e.ceil) e.y=WALLH-d.h*e.scale;
   }
   // integrate
-  const acc=1-Math.exp(-dt*(e.mode==='lunge'?30:e.type==='mannequin'?20:9));
+  const acc=1-Math.exp(-dt*((e.mode==='lunge'||e.fastMove)&&e.atkT>0?30:e.type==='mannequin'?20:9));
   e.vx=lerp(e.vx,mx,acc); e.vz=lerp(e.vz,mz,acc);
   if(e.watched){ e.vx=0; e.vz=0; }
   const kd=Math.exp(-dt*6); e.kvx*=kd; e.kvz*=kd;
@@ -2762,7 +2769,7 @@ function updateMotion(dt){
   else { MOT.stamCd-=dt; if(MOT.stamCd<=0) MOT.stamina=Math.min(100,MOT.stamina+dt*16*UP.speed); }
   if(MOT.sprintBtn&&ml<.1){ MOT.sprintBtn=false; $('bDash').classList.remove('lock'); }
   // velocity (local), with momentum
-  const base=(MOT.sprint?SPRINT:WALK)*UP.speed*(1-.38*P.ads)*(P.hp<P.maxHp*.25?.85:1)*(P.reloadT>0?.85:1)*(P.wet?.72:1)*(P.dreadSlow||1);
+  const base=(MOT.sprint?SPRINT:WALK)*UP.speed*(1-.38*P.ads)*(P.hp<P.maxHp*.25?.85:1)*(P.reloadT>0?.85:1)*(P.wet?.72:1)*(P.dreadSlow||1)*(P.grabT>0?.06:1);
   let lvx=mx*base*.82, lvz=mz*base*(mz<0?.62:1); const ll=Math.hypot(lvx,lvz); if(ll>base){ lvx*=base/ll; lvz*=base/ll; }
   const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw), rx=Math.cos(P.yaw), rz=-Math.sin(P.yaw);
   P.wx=rx*mx+fx*mz; P.wz=rz*mx+fz*mz;
@@ -2894,7 +2901,7 @@ function buildKickVM(){
   legG.visible=false; vmScene.add(legG);
 }
 function kickExt(){ if(P.kickT<=0) return 0; const p=1-P.kickT/KICK.dur; return p<.28?smooth(0,.28,p):1-smooth(.38,1,p); }
-function startKick(){
+function startKick(){ P.kickAuto=false;
   if(P.kickT>0||P.kickCd>0||!P.alive||state!=='play'||P.healT>0) return false;
   P.kickT=KICK.dur; P.kickCd=KICK.cd; P.kickHit=false;
   SFX.kickSwing(); MOT.spv+=.55; MOT.syv-=.15; buzz(15);
@@ -2912,8 +2919,8 @@ function updKick(dt){
   P.kickCd-=dt;
   // automatic: something is right on top of you
   if(P.kickT<=0&&P.kickCd<=0&&P.alive){
-    const near=kickTargets(-.25).filter(([e])=>e.aware&&!e.boss||(e.boss&&e.atkT<=0));
-    if(near.length) startKick();
+    const near=kickTargets(-.25).filter(([e])=>(!(e.steady||e.heavy)||(e.holding&&e.holdT>.5))&&(e.aware&&!e.boss||(e.boss&&e.atkT<=0)));
+    if(near.length){ startKick(); P.kickAuto=true; }
   }
   if(P.kickT>0){
     P.kickT-=dt;
@@ -2921,6 +2928,7 @@ function updKick(dt){
       P.kickHit=true; let hitAny=false;
       for(const [e,d,nx,nz] of kickTargets(.15).slice(0,3)){
         hitAny=true; const m=e.boss?e.d.mass*1.6:e.d.mass;
+        if((e.steady||(e.heavy&&P.kickAuto))&&P.kickAuto&&!(e.holding&&e.holdT>.5)){ hurtEnemy(e,KICK.dmg*.5,nx,nz,0,'kick'); continue; }
         e.kvx+=nx*KICK.force/m; e.kvz+=nz*KICK.force/m;
         e.atkT=0; e.mode=''; e.lx=0; e.lz=0; e.atkHit=true;
         e.painT=Math.max(e.painT,e.boss?.18:.6); e.cd=Math.max(e.cd,e.boss?.5:1.1);
@@ -4247,10 +4255,11 @@ const MONS={
  diver:{files:['diver_brass'],walk:.42,run:1.73,hit:.78,hit2:.66},
  mutant:{files:['mutant_infested'],walk:.46,run:1.98,hit:.82,hit2:.64},
  lurker:{files:['lurker_rot'],walk:.5,run:1,hit:.62,hit2:.58,alert:'Emerge'},
+ wrapper:{files:['wrapper'],walk:.6,run:3.4,hit:.55,zfix:{Idle:.336,Walk:.338,WallSlam:.28}},
 };
 // enemy type -> [monster, scale]
 const ETYPE_MON={hollow:['gutter',1.15],bloat:['drowned',1.12],crawler:['hag',1.05],grinner:['jelly',.95],mannequin:['keeper',1.2],skitter:['crab',1.15],hanger:['isopod',1.5],
-  brute:['brute',1],eel:['eel',1],angler:['angler',1.2],diver:['diver',1.05],mutant:['mutant',1.05],lurker:['lurker',1.05],
+  brute:['brute',1],eel:['eel',1],angler:['angler',1.2],diver:['diver',1.05],mutant:['mutant',1.05],lurker:['lurker',1.05],wrapper:['wrapper',1.03],
   attendant:['diver',1.55],lineman:['brute',1.35],manager:['angler',2],brood:['mutant',1.6],grin:['jelly',1.5],matriarch:['hag',1.8]};
 // hitboxes matched to the models
 Object.assign(EDEF.hollow,{h:1.85,hy1:1.8,hr:.36,head:[1.45,1.85,.22]});
@@ -4285,9 +4294,10 @@ function loadAssets(prog){
     .then(()=>{ ASSET.ready=true; });
 }
 function assetArt(){
-  for(const t of ['brute','eel','angler','diver','mutant','lurker']){ ART.en[t]=ART.en[t]||ART.en[t==='eel'||t==='angler'?'crawler':'hollow']; }
+  for(const t of ['brute','eel','angler','diver','mutant','lurker','wrapper']){ ART.en[t]=ART.en[t]||ART.en[t==='eel'||t==='angler'?'crawler':'hollow']; }
   VOX.brute=VOX.brute||((e,k)=>voice(e,R(55,75),R(40,55),k==='attack'?.8:1.2,[[350,4,1],[900,6,.5]],1.2,'sawtooth',[8,8]));
   VOX.eel=VOX.eel||VOX.crawler; VOX.angler=VOX.angler||VOX.crawler; VOX.diver=VOX.diver||VOX.hollow; VOX.mutant=VOX.mutant||VOX.hollow; VOX.lurker=VOX.lurker||VOX.hanger;
+  VOX.wrapper=VOX.wrapper||((e,k)=>{ if(!AU.on) return; if(k==='alert'||k==='attack'){ voice(e,R(380,460),R(900,1300),k==='alert'?1.1:.5,[[1400,4,1],[3000,7,.6]],1.1,'sawtooth',[18,40]); } else if(k==='pain'||k==='die'){ voice(e,R(300,360),140,.6,[[900,3,1]],.8,'sawtooth'); } else { const o=dest(e,.5); for(let i=0;i<RI(2,4);i++) hiss({ft:'bandpass',freq:R(900,1400),q:3,dur:R(.15,.3),vol:.25,att:.05,out:o,at:i*R(.25,.4)}); } });
   ESTEP.brute=ESTEP.boss; ESTEP.diver=[1.2,(o)=>{ tone({f0:60,f1:35,dur:.12,vol:.6,out:o}); hiss({ft:'lowpass',freq:350,dur:.1,vol:.4,out:o}); clk(o,900,.15,.02); }];
   ESTEP.eel=[.6,(o)=>hiss({ft:'bandpass',freq:700,q:1,dur:.25,vol:.3,att:.05,out:o})]; ESTEP.lurker=[99,()=>{}];
 }
@@ -4357,6 +4367,7 @@ function buildGlbRig(e){
       const conv=m=>{ const glow=!!m.emissiveMap; const p=new THREE.MeshPhongMaterial({map:m.map,emissiveMap:m.map,emissive:glow?0xffffff:0x000000,skinning:!!o.isSkinnedMesh,alphaTest:m.alphaTest||0,transparent:false,side:m.side,shininess:6,specular:0x0a0a0a,fog:true}); p.userData.glow=glow; mats.push(p); return p; };
       o.material=Array.isArray(o.material)?o.material.map(conv):conv(o.material); }
     if(o.isBone){ bones.push(o); boneBy[o.name]=o; } });
+  if(!boneBy.Head&&boneBy.head) boneBy.Head=boneBy.head;
   const mixer=new THREE.AnimationMixer(model), acts={};
   for(const c of gl.animations){ const a=mixer.clipAction(c); if(/^(Idle|Walk|Run)$/.test(c.name)) a.setLoop(THREE.LoopRepeat); else { a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } acts[c.name]=a; }
   const rg={glb:true,root,body,model,mixer,acts,mats,bones,boneBy,info,sc,yaw:R(0,TAU),react:{spine:0,head:0},lost:{},lostBones:[],meshes:[],arms:[],legs:[],j:{},S:{},cur:null,busy:0};
@@ -4376,9 +4387,12 @@ function glbSync(e,dt){
   // lurker: asleep in the wall until something comes close
   if(e.lurk){ if(e.ambush){ if(rg.cur!=='Emerge'){ glbPlay(rg,'Emerge',.2,false,1); } rg.acts.Emerge.paused=true; rg.acts.Emerge.time=0; rg.mixer.update(0); glbShade(e); return; }
     if(!rg.woke){ rg.woke=true; rg.acts.Emerge.paused=false; glbPlay(rg,'Emerge',.05,true,1.4); } }
+  if(e.wantClip==='__loco'){ rg.busy=0; e.wantClip=null; }
+  if(e.wantClip){ if(rg.acts[e.wantClip]) glbPlay(rg,e.wantClip,.08,true,e.wantTs||1); e.wantClip=null; }
+  if(e.atkT>0&&!rg.atk&&e.atkClip===false){ rg.atk=true; e.atkClip=null; }
   if(e.atkT>0&&!rg.atk){ rg.atk=true;
-    const ranged=/shoot|spit|lob|orb/.test(e.mode), swell=e.mode==='swell';
-    let clip=swell&&info.special&&rg.acts[info.special]?info.special:(ranged&&rg.acts.Attack2?'Attack2':(rand()<.35&&rg.acts.Attack2?'Attack2':'Attack'));
+    const ranged=/shoot|spit|lob|orb|volley/.test(e.mode), swell=e.mode==='swell';
+    let clip=e.atkClip&&rg.acts[e.atkClip]?e.atkClip:swell&&info.special&&rg.acts[info.special]?info.special:(ranged&&rg.acts.Attack2?'Attack2':(rand()<.35&&rg.acts.Attack2?'Attack2':'Attack')); e.atkClip=null;
     const hitAt=clip==='Attack2'?(info.hit2||info.hit):info.hit, want=e.mode==='melee'?.55:e.mode==='lunge'?.25:.45;
     glbPlay(rg,clip,.08,true,clamp(hitAt/want,.6,2.6)); }
   if(e.atkT<=0) rg.atk=false;
@@ -4388,13 +4402,14 @@ function glbSync(e,dt){
   if(rg.busy<=0){
     const sp=Math.hypot(e.vx,e.vz);
     if(sp>.12&&!e.lurk){ const w=info.walk*rg.sc, r=info.run*rg.sc;
-      if((sp>w*1.8||e.burstT>0)&&rg.acts.Run) glbPlay(rg,'Run',.22,false,clamp(sp/r,.6,1.9)); else glbPlay(rg,'Walk',.22,false,clamp(sp/w,.5,2.8)); }
-    else glbPlay(rg,'Idle',.3,false,1);
+      if((sp>w*1.8||e.burstT>0||e.fastMove)&&rg.acts.Run) glbPlay(rg,'Run',.22,false,clamp(sp/r,.6,1.9)); else glbPlay(rg,'Walk',.22,false,clamp(sp/w,.5,2.8)); }
+    else glbPlay(rg,e.idleClip&&rg.acts[e.idleClip]?e.idleClip:'Idle',.3,false,1);
   }
   // far, unseen monsters animate at a quarter rate — nobody can tell, the phone can
   const far=!e.los&&Math.hypot(e.x-P.x,e.z-P.z)>14; rg.acc=(rg.acc||0)+(frozen?0:dt);
   if(!far||(rg.skip=(rg.skip||0)+1)%4===0){ rg.mixer.update(rg.acc); rg.acc=0; }
   for(const b of rg.lostBones) b.scale.setScalar(.0001);
+  if(info.zfix){ const z=info.zfix[rg.cur]||0; rg.model.position.z=damp(rg.model.position.z,z,8,dt); }
   glbStumps(e,dt); glbShade(e);
 }
 function glbShade(e){
@@ -4976,6 +4991,178 @@ function updMini(dt){
   x.fillStyle='rgba(255,224,138,.6)'; x.font=`${10*dpr}px VT323`; x.textAlign='center'; x.fillText('N',r+Math.sin(-P.yaw)*(r-8*dpr)*-1,r-Math.cos(-P.yaw)*(r-8*dpr)+3*dpr);
 }
 
+// ---------------- enemy quirks: every entity hunts differently ----------------
+const QAI={}, QMODE={}; let SPAWN_OPT=null;
+function wantClip(e,name,ts){ e.wantClip=name; e.wantTs=ts||1; }
+function steerTo(e,tx,tz){ return flowStep(e,fieldTo(tx,tz),tx,tz); }
+function litBy(e,dist,cone){ if(!(P.light&&P.battery>0&&!P.plugged)||!e.los||dist>15) return false; const cp=Math.cos(P.pitch), c=((e.x-P.x)*-Math.sin(P.yaw)*cp+(e.z-P.z)*-Math.cos(P.yaw)*cp)/dist; return c>(cone||.93); }
+function facingMe(dist,e){ const c=((e.x-P.x)*-Math.sin(P.yaw)+(e.z-P.z)*-Math.cos(P.yaw))/dist; return c; }
+// come in at an angle instead of single file: each one picks a side
+function flankChase(e,dist,nx,nz,mul){
+  if(e.los&&dist>3&&dist<13){ const s=e.flankS||(e.flankS=rand()<.5?1:-1), k=e.flankK||(e.flankK=R(.5,1.1)*(mul||1)); const off=Math.min(3,dist*.4)*k;
+    const tx=P.x-nz*s*off, tz=P.z+nx*s*off; if(!solid(cellOf(tx),cellOf(tz))&&los(e.x,e.z,tx,tz)){ const dx=tx-e.x, dz=tz-e.z, l=Math.hypot(dx,dz)||1; return [dx/l,dz/l]; } }
+  return chaseDir(e); }
+// don't stack into one blob
+function sepSteer(e,mx,mz){ for(const o of LV.enemies){ if(o===e||o.dead||o.ceil||o.lurk) continue; const dx=e.x-o.x, dz=e.z-o.z, d=Math.hypot(dx,dz), r=(e.d.r+o.d.r)*1.6; if(d<r&&d>.01){ const k=(r-d)/r; mx+=dx/d*k*1.2; mz+=dz/d*k*1.2; } } return [mx,mz]; }
+function startSwing(e,clip,t){ e.atkT=t||.85; e.mode='swing'; e.atkHit=false; e.atkClip=clip||null; vox(e,'attack'); }
+function wallAhead(e,dx,dz,d){ const x=e.x+dx*d, z=e.z+dz*d; return solid(cellOf(x),cellOf(z)); }
+function doorAhead(e,dx,dz,d){ if(!LV.doorAt) return null; const x=e.x+dx*d, z=e.z+dz*d, dr=LV.doorAt.get(cellOf(z)*LV.W+cellOf(x)); return dr&&!dr.open?dr:null; }
+// ---- a generic two-hit swing (hollow, crab, mutant, brute)
+QMODE.swing=(e,dt,dist)=>{ const d=e.d;
+  if(!e.atkHit&&e.atkT<.3){ e.atkHit=true; if(dist<d.r+PR+(d.reach||1.0)&&e.los){ hurtPlayer(d.dmg*LV.dmgMul*e.dmgM*(e.heavy?1.25:1),e.x,e.z); if(e.heavy){ P.shake=Math.max(P.shake,3.5); P.vx+=(P.x-e.x)/dist*5; P.vz+=(P.z-e.z)/dist*5; } } }
+  if(e.atkT<=0){ if(e.combo&&!e.comboDone&&dist<d.r+PR+(d.reach||1)+.3&&e.los){ e.comboDone=true; startSwing(e,'Attack2',.7); } else { e.comboDone=false; e.cd=R(.7,1.1); } }
+  return [0,0]; };
+// ================= HOLLOW: shambles, then bursts into a sprint, screams the others awake =================
+QAI.shamble=(e,dt,dist,nx,nz,spd)=>{ e.combo=true; e.stT=(e.stT||0)-dt; e.st=e.st||'stalk';
+  if(e.los&&!e.called){ e.called=true; wantClip(e,'Scream',1.3); e.cd=Math.max(e.cd,.8); for(const o of LV.enemies){ if(o!==e&&!o.dead&&(o.type==='hollow'||o.type==='mutant')&&Math.hypot(o.x-e.x,o.z-e.z)<16){ o.lkx=P.x; o.lkz=P.z; if(!o.aware) alertEnemy(o); } } return [0,0]; }
+  if(dist<e.d.r+PR+.75&&e.cd<=0&&e.los){ startSwing(e,'Attack'); return [0,0]; }
+  let k=1; if(e.st==='stalk'){ if(e.stT<=0&&e.los&&dist<11&&dist>2.6){ e.st='burst'; e.stT=R(.9,1.5); vox(e,'alert'); } }
+  else if(e.st==='burst'){ k=2.7; if(e.stT<=0){ e.st='gasp'; e.stT=R(.4,.7); } } else if(e.st==='gasp'){ k=.15; if(e.stT<=0){ e.st='stalk'; e.stT=R(1.4,2.8); } }
+  let [mx,mz]=flankChase(e,dist,nx,nz,.7); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; return [mx*spd*k,mz*spd*k]; };
+// ================= BLOAT: lumbers in and vomits bile at you, swells when it reaches you =================
+function lobBile(e){ const dx=P.x-e.x, dz=P.z-e.z, d=Math.hypot(dx,dz)||1, T=clamp(d/7,.35,1.1), sy=e.y+e.d.hy1*e.scale*.8;
+  for(let k=0;k<3;k++){ const a=Math.atan2(dz,dx)+(k-1)*.12; addProj('bile',e.x+Math.cos(a)*.4,sy,e.z+Math.sin(a)*.4,Math.cos(a)*d/T*R(.85,1.05),(camPos.y-.8-sy+3.5*T*T)/T,Math.sin(a)*d/T*R(.85,1.05)); }
+  SFX.sizzle&&SFX.sizzle(e); vox(e,'attack'); }
+QAI.retcher=(e,dt,dist,nx,nz,spd)=>{
+  if(dist<2.1){ e.atkT=.85; e.mode='swell'; e.atkClip=null; vox(e,'attack'); return [0,0]; }
+  e.retchCd=(e.retchCd||R(1,2.5))-dt;
+  if(e.los&&dist>2.8&&dist<7&&e.retchCd<=0&&e.cd<=0){ e.retchCd=R(3.5,5.5); e.atkT=1.15; e.mode='retch'; e.atkHit=false; e.atkClip=false; wantClip(e,'Retch',1.1); e.steady=true; return [0,0]; }
+  let [mx,mz]=chaseDir(e); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; return [mx*spd,mz*spd]; };
+QMODE.retch=(e,dt,dist)=>{ if(!e.atkHit&&e.atkT<.5){ e.atkHit=true; lobBile(e); } if(e.atkT<=0){ e.steady=false; e.cd=R(.8,1.4); } return [0,0]; };
+// ================= CRAWLER (hag): hates the beam, flanks along the walls, gets brave in the dark =================
+QAI.flanker=(e,dt,dist,nx,nz,spd)=>{ const dark=!(P.light&&P.battery>0)||P.plugged, reach=dark?7:5;
+  if(e.los&&dist<reach&&dist>1.3&&e.cd<=0&&!litBy(e,dist,.97)){ e.atkT=.42; e.mode='lunge'; e.atkHit=false; const ls=(dark?9:7.5+LV.L*.15)*e.spd; e.lx=nx*ls; e.lz=nz*ls; vox(e,'attack'); return [0,0]; }
+  if(dist<e.d.r+PR+.5&&e.cd<=0){ e.atkT=.35; e.mode='melee'; e.atkHit=false; return [0,0]; }
+  let [mx,mz]=flankChase(e,dist,nx,nz,dark?.3:1.5); const w=Math.sin(e.animT*7)*.3; [mx,mz]=[mx-mz*w,mz+mx*w]; [mx,mz]=sepSteer(e,mx,mz); e.moving=true; const k=dark?1.45:1; return [mx*spd*k,mz*spd*k]; };
+// ================= GRINNER (jelly): orbits, fires, then slips out of sight before the next volley =================
+QAI.orbiter=(e,dt,dist,nx,nz,spd)=>{ e.hideT=(e.hideT||0)-dt;
+  if(!e.blinked&&e.hp<e.maxHp*.5){ e.blinked=true; const c=findSpawnNear(P.x,P.z,6,11,true); if(c>=0){ for(let k=0;k<20;k++) PS.spawn(e.x,1.2,e.z,R(-2,2),R(-1,2),R(-2,2),.05,.02,.08,.8,-.5); e.x=(c%LV.W+.5)*C; e.z=(((c/LV.W)|0)+.5)*C; SFX.whisper(e); } }
+  if(e.hideT>0&&e.hide){ const dx=e.hide.x-e.x, dz=e.hide.z-e.z, l=Math.hypot(dx,dz); if(l>.4){ e.moving=true; return [dx/l*spd*1.4,dz/l*spd*1.4]; } return [0,0]; }
+  if(e.los&&dist<13&&e.cd<=0){ e.vol=(e.vol||0)+1; e.atkT=.55; e.mode='volley'; e.atkHit=false; e.atkClip='Attack2'; vox(e,'attack'); return [0,0]; }
+  e.strT-=dt; if(e.strT<=0){ e.strT=R(.8,1.8); e.strafe*=-1; } let mx,mz;
+  if(!e.los||dist>9){ [mx,mz]=chaseDir(e); } else if(dist<5){ mx=-nx; mz=-nz; } else { mx=-nz*e.strafe+nx*.15; mz=nx*e.strafe+nz*.15; }
+  e.moving=true; return [mx*spd,mz*spd]; };
+QMODE.volley=(e,dt,dist)=>{ if(!e.atkHit&&e.atkT<.2){ e.atkHit=true; const n=e.vol%3===0?3:1; for(let k=0;k<n;k++) shootOrb(e,(k-(n-1)/2)*.16,7.5+LV.L*.25);
+    // duck out of sight: find a nearby spot the player can't see
+    if(rand()<.7){ let best=null; for(let t=0;t<14;t++){ const a=R(0,TAU), r=R(1.5,4), x=e.x+Math.cos(a)*r, z=e.z+Math.sin(a)*r; if(solid(cellOf(x),cellOf(z))||!los(e.x,e.z,x,z)) continue; if(!los(P.x,P.z,x,z)){ best={x,z}; break; } } if(best){ e.hide=best; e.hideT=R(1.4,2.4); } } }
+  if(e.atkT<=0) e.cd=R(1.8,2.6); return [0,0]; };
+// ================= MANNEQUIN (keeper): moves only unseen; faster in the dark; relocates behind you =================
+QAI.statue2=(e,dt,dist,nx,nz,spd)=>{ const d=e.d, was=e.watched; e.watched=watching(e,dist);
+  if(e.watched){ e.vx=e.vz=0; if(!was&&e.lastSeenD!=null&&e.lastSeenD-dist>1.2){ vox(e,'idle'); P.shake=Math.max(P.shake,.6); } e.lastSeenD=dist; return [0,0]; }
+  e.relT=(e.relT||R(6,10))-dt;
+  if(e.relT<=0&&!e.los&&dist>9){ e.relT=R(7,12); const c=findSpawnNear(P.x,P.z,4,7,true); if(c>=0){ e.x=(c%LV.W+.5)*C; e.z=(((c/LV.W)|0)+.5)*C; } }
+  if(dist<d.r+PR+.7&&e.cd<=0){ e.cd=.9; hurtPlayer(d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); vox(e,'attack'); return [0,0]; }
+  const dark=!(P.light&&P.battery>0)||P.plugged; let [mx,mz]=chaseDir(e); e.moving=true; e.sk2-=dt; if(e.sk2<=0){ e.sk2=R(.4,1); if(dist<20) vox(e,'idle'); }
+  const k=dark?1.6:1; return [mx*spd*k,mz*spd*k]; };
+// ================= SKITTER (crab): spits from range, scuttles off, but rears up and pinches when cornered =================
+QAI.crab=(e,dt,dist,nx,nz,spd)=>{ e.combo=true;
+  if(dist<2.3&&e.cd<=0&&e.los){ e.atkT=.5; e.mode='threat'; e.atkClip=false; wantClip(e,'Threat',1.6); vox(e,'alert'); return [0,0]; }
+  return peekerAI(e,dt,dist,nx,nz,spd); };
+QMODE.threat=(e,dt,dist)=>{ if(e.atkT<=0){ if(dist<e.d.r+PR+1.2) startSwing(e,'Attack',.45); else e.cd=.4; } return [0,0]; };
+// ================= HANGER (isopod): ceiling drops; on the floor it curls up armoured, then rolls at you =================
+QMODE.curl=(e,dt,dist,nx,nz)=>{ if(e.atkT<=0){ e.mode='roll'; e.atkT=1.2; e.lx=nx*7.5; e.lz=nz*7.5; e.atkHit=false; e.fastMove=true; vox(e,'attack'); } return [0,0]; };
+QMODE.roll=(e,dt,dist)=>{ if(!e.atkHit&&dist<e.d.r+PR+.3){ e.atkHit=true; hurtPlayer(e.d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); P.shake=Math.max(P.shake,2.5); e.lx*=.2; e.lz*=.2; }
+  const l=Math.hypot(e.lx,e.lz)||1; if(wallAhead(e,e.lx/l,e.lz/l,.5)){ e.lx=-e.lx*.3; e.lz=-e.lz*.3; P.shake=Math.max(P.shake,.8*Math.max(0,1-dist/8)); SFX.kickHit(); }
+  if(e.atkT<=0){ e.steady=false; e.curled=false; e.fastMove=false; e.cd=R(.8,1.3); } return [e.lx,e.lz]; };
+// ================= BRUTE: roars, then bull-rushes in a straight line; a wall stops it cold =================
+QAI.charger=(e,dt,dist,nx,nz,spd)=>{ e.combo=true; e.heavy=true; e.chargeCd=(e.chargeCd||R(1.5,3))-dt;
+  if(dist<e.d.r+PR+1.0&&e.cd<=0&&e.los){ startSwing(e,rand()<.5?'Attack':'Attack2',1.0); return [0,0]; }
+  if(e.los&&dist>4&&dist<13&&e.chargeCd<=0&&e.cd<=0){ e.chargeCd=R(6,9); e.atkT=.9; e.mode='roar'; e.atkClip=false; wantClip(e,'Scream',1.4); e.steady=true; vox(e,'alert'); P.shake=Math.max(P.shake,1.2); return [0,0]; }
+  let [mx,mz]=chaseDir(e); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; return [mx*spd,mz*spd]; };
+QMODE.roar=(e,dt,dist,nx,nz)=>{ if(e.atkT<=0){ e.wantClip='__loco'; e.mode='charge'; e.atkT=2.4; e.cdx=nx; e.cdz=nz; e.atkHit=false; e.fastMove=true; e.burstT=2.4; } return [0,0]; };
+function chargeMove(e,dt,dist,nx,nz,speed,turn,onHit,onWall){
+  // limited turning: it commits to the line
+  const want=Math.atan2(nz,nx); let cur=Math.atan2(e.cdz,e.cdx), d=Math.atan2(Math.sin(want-cur),Math.cos(want-cur)); cur+=clamp(d,-turn*dt,turn*dt); e.cdx=Math.cos(cur); e.cdz=Math.sin(cur);
+  if(!e.atkHit&&dist<e.d.r+PR+.45){ e.atkHit=true; onHit(); }
+  const dr=doorAhead(e,e.cdx,e.cdz,.8); if(dr){ breakDoor(dr); P.shake=Math.max(P.shake,2); }
+  else if(wallAhead(e,e.cdx,e.cdz,e.d.r+.25)){ onWall(); return [0,0]; }
+  if(rand()<.4) MIST.spawn(e.x+R(-.3,.3),.1,e.z+R(-.3,.3),R(-.5,.5),R(.2,.5),R(-.5,.5),.18,.16,.14,R(.5,.9),-.1);
+  return [e.cdx*speed,e.cdz*speed]; }
+QMODE.charge=(e,dt,dist,nx,nz)=>{
+  const r=chargeMove(e,dt,dist,nx,nz,7.2*e.spd,.9,()=>{ hurtPlayer(e.d.dmg*1.3*LV.dmgMul*e.dmgM,e.x,e.z); P.vx+=e.cdx*11; P.vz+=e.cdz*11; P.shake=Math.max(P.shake,6); e.atkT=Math.min(e.atkT,.25); },
+    ()=>{ e.mode='dazed'; e.atkT=1.8; e.fastMove=false; e.dazed=true; e.atkClip=false; wantClip(e,'Hit',.6); P.shake=Math.max(P.shake,4*Math.max(.2,1-dist/12)); SFX.kickHit(); SFX.crate&&SFX.crate(e);
+      for(let k=0;k<20;k++) PS.spawn(e.x+e.cdx*.6,R(.3,1.8),e.z+e.cdz*.6,R(-2,2),R(0,2),R(-2,2),.5,.45,.35,R(.4,.9),10); msg('IT HIT THE WALL — NOW','#ffcf8a'); });
+  if(e.mode==='charge'&&e.atkT<=0){ e.fastMove=false; e.steady=false; e.cd=R(.8,1.2); }
+  return r; };
+QMODE.dazed=(e,dt)=>{ if(rand()<.08) PS.spawn(e.x,e.y+e.d.h*e.scale,e.z,R(-.3,.3),R(.2,.6),R(-.3,.3),1,.9,.5,.5,0); if(e.atkT<=0){ e.dazed=false; e.steady=false; e.cd=.6; } return [0,0]; };
+// ================= EEL: weaves in fast, rears up as a warning, strikes, then pulls back =================
+QAI.slither=(e,dt,dist,nx,nz,spd)=>{ e.st=e.st||'in'; e.stT=(e.stT||0)-dt;
+  if(e.st==='back'){ const [fx,fz]=fleeDir(e), w=Math.sin(LV.t*8+e.animT)*.8; if(e.stT<=0) e.st='in'; e.moving=true; return [(fx-fz*w)*spd*1.3,(fz+fx*w)*spd*1.3]; }
+  if(e.los&&dist<4.2&&dist>1.2&&e.cd<=0){ e.atkT=.45; e.mode='rear'; e.atkClip=false; wantClip(e,'Rear',1.8); vox(e,'alert'); return [0,0]; }
+  if(dist<e.d.r+PR+.5&&e.cd<=0){ e.atkT=.35; e.mode='melee'; e.atkHit=false; return [0,0]; }
+  let [mx,mz]=chaseDir(e); const w=Math.sin(LV.t*5+e.animT*2)*1.1; [mx,mz]=[mx-mz*w,mz+mx*w]; const l=Math.hypot(mx,mz)||1; e.moving=true; return [mx/l*spd*1.35,mz/l*spd*1.35]; };
+QMODE.rear=(e,dt,dist,nx,nz)=>{ if(e.atkT<=0){ e.atkT=.4; e.mode='lunge'; e.atkHit=false; e.atkClip='Attack'; const ls=10.5*e.spd; e.lx=nx*ls; e.lz=nz*ls; e.st='back'; e.stT=R(1,1.8); vox(e,'attack'); } return [0,0]; };
+// ================= ANGLER: waits in the dark behind a glowing lure; pulls back to set it again when hurt =================
+function anglerLure(e,on){ const rg=e.rig; if(!rg) return; if(!e.lureS){ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:ART.flare,color:0x9fffe8,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0,fog:true})); s.scale.setScalar(.5); rg.root.add(s); s.position.set(0,e.d.h*e.scale*.95,.55*e.scale); e.lureS=s; }
+  e.lureS.visible=on; }
+QAI.lure=(e,dt,dist,nx,nz,spd)=>{
+  if(e.luring){ e.vx=e.vz=0; return [0,0]; }
+  if(e.st==='hide'){ e.stT-=dt; const [fx,fz]=fleeDir(e); if(e.stT<=0){ e.st='lure'; e.aware=false; e.hunt=false; e.searching=false; e.luring=true; e.idleClip='Lure'; anglerLure(e,true); } e.moving=true; return [fx*spd*1.4,fz*spd*1.4]; }
+  if(e.hp<e.maxHp*.45&&!e.hid){ e.hid=true; e.st='hide'; e.stT=R(2.5,3.5); anglerLure(e,false); vox(e,'pain'); return [0,0]; }
+  if(e.los&&dist<4.5&&dist>1.3&&e.cd<=0){ e.atkT=.5; e.mode='lunge'; e.atkHit=false; const ls=8.5*e.spd; e.lx=nx*ls; e.lz=nz*ls; vox(e,'attack'); return [0,0]; }
+  if(dist<e.d.r+PR+.6&&e.cd<=0){ e.atkT=.4; e.mode='melee'; e.atkHit=false; return [0,0]; }
+  let [mx,mz]=chaseDir(e); e.moving=true; return [mx*spd,mz*spd]; };
+// ================= DIVER: armour plating shrugs off shots from the front; grabs and holds you =================
+QAI.armored=(e,dt,dist,nx,nz,spd)=>{ e.willFlee=false; e.heavy=true;
+  if(dist<e.d.r+PR+1.0&&e.cd<=0&&e.los){ e.atkT=1.3; e.mode='grab'; e.atkHit=false; e.atkClip='Attack2'; e.steady=true; e.grabDmg=0; vox(e,'attack'); return [0,0]; }
+  let [mx,mz]=chaseDir(e); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; return [mx*spd,mz*spd]; };
+QMODE.grab=(e,dt,dist)=>{
+  if(!e.atkHit&&e.atkT<.95){ e.atkHit=true; if(dist<e.d.r+PR+1.1&&e.los){ e.holding=true; e.holdT=0; P.grabT=1.1; hurtPlayer(e.d.dmg*.5*LV.dmgMul*e.dmgM,e.x,e.z); msg(isTouch?'IT HAS YOU — SHOOT IT OR STRUGGLE FREE':'IT HAS YOU — [V] KICK OR SHOOT IT OFF','#ff6b6b'); } }
+  if(e.holding){ e.holdT=(e.holdT||0)+dt; P.grabT=Math.max(P.grabT,.1); const px=e.x+(P.x-e.x)/dist*(e.d.r+PR+.15), pz=e.z+(P.z-e.z)/dist*(e.d.r+PR+.15); P.x=lerp(P.x,px,.25); P.z=lerp(P.z,pz,.25); P.shake=Math.max(P.shake,1);
+    e.squeezeT=(e.squeezeT||0)-dt; if(e.squeezeT<=0){ e.squeezeT=.45; hurtPlayer(e.d.dmg*.22*LV.dmgMul*e.dmgM,e.x,e.z,true); } }
+  if(e.atkT<=0||(e.holding&&e.grabDmg>e.maxHp*.12)){ if(e.holding&&e.grabDmg>e.maxHp*.12){ e.painT=.6; vox(e,'pain'); } e.holding=false; P.grabT=0; e.steady=false; e.atkT=0; e.cd=R(1.2,1.8); }
+  return [0,0]; };
+// ================= MUTANT: twitches and jerks unpredictably; bursts into crawling larvae when it dies =================
+QAI.spasm=(e,dt,dist,nx,nz,spd)=>{ e.combo=true; e.jerkT=(e.jerkT||R(.5,1))-dt;
+  if(dist<e.d.r+PR+.9&&e.cd<=0&&e.los){ startSwing(e,'Attack',.8); return [0,0]; }
+  if(e.jerkT<=0){ e.jerkT=R(.5,1.3); const s=rand()<.5?1:-1, f=R(4,8); e.kvx+=-nz*s*f+nx*R(-1,3); e.kvz+=nx*s*f+nz*R(-1,3); if(rand()<.3){ wantClip(e,'Spasm',2.2); } if(rand()<.35) vox(e,'pain'); }
+  let [mx,mz]=flankChase(e,dist,nx,nz,.8); [mx,mz]=sepSteer(e,mx,mz); e.moving=true; const burst=Math.sin(LV.t*3+e.animT)>.6?1.8:1; return [mx*spd*burst,mz*spd*burst]; };
+function mutantBurst(e){ const n=RI(2,3); for(let k=0;k<n;k++){ const a=R(0,TAU); let x=e.x+Math.cos(a)*.6, z=e.z+Math.sin(a)*.6; if(solid(cellOf(x),cellOf(z))){ x=e.x; z=e.z; }
+    SPAWN_OPT={scale:.42,hp:28,maxHp:28,dmgM:.45,spd:1.25,larva:true}; const l=spawnEnemy('eel',cellOf(x),cellOf(z),true); l.x=x; l.z=z; l.cd=.6; l.kvx=Math.cos(a)*4; l.kvz=Math.sin(a)*4; } }
+// ================= THE WRAPPER: watches from a distance, creeps when you look away; light it and it screams and sprints blind =================
+QAI.watcher=(e,dt,dist,nx,nz,spd)=>{ e.litT=litBy(e,dist,.95)?(e.litT||0)+dt:Math.max(0,(e.litT||0)-dt*2); e.stT=(e.stT||0)-dt;
+  if(e.st==='retreat'){ if(e.stT<=0||dist>8.5) e.st=''; const [fx,fz]=fleeDir(e); e.moving=true; return [fx*spd*1.5,fz*spd*1.5]; }
+  if(dist<1.7&&e.cd<=0&&e.los){ e.atkT=.6; e.mode='wlunge'; e.fastMove=true; e.steady=true; e.lx=nx*4; e.lz=nz*4; wantClip(e,'Attack',1.5); vox(e,'attack'); return [0,0]; }
+  if(e.cd<=0&&e.los&&(e.litT>.35||dist<3.2)){ e.atkT=1.15; e.mode='scream'; e.atkClip=false; wantClip(e,'Scream',1.05); e.steady=true; vox(e,'alert'); P.shake=Math.max(P.shake,1.5);
+    for(const o of LV.enemies){ if(o!==e&&!o.dead&&Math.hypot(o.x-e.x,o.z-e.z)<20){ o.lkx=P.x; o.lkz=P.z; if(!o.aware) alertEnemy(o); } } return [0,0]; }
+  const look=facingMe(dist,e); let mx=0,mz=0;
+  if(!e.los||dist>11){ [mx,mz]=chaseDir(e); }
+  else if(look<.55){ [mx,mz]=chaseDir(e); mx*=1.6; mz*=1.6; }           // you looked away: it closes in
+  else if(dist<6.5){ mx=-nx*.8; mz=-nz*.8; }                            // too close while watched: it backs off
+  else { e.strT-=dt; if(e.strT<=0){ e.strT=R(.7,1.6); e.strafe*=-1; } mx=-nz*e.strafe*.4; mz=nx*e.strafe*.4; }
+  [mx,mz]=sepSteer(e,mx,mz); e.moving=!!(mx||mz); return [mx*spd,mz*spd]; };
+QMODE.scream=(e,dt,dist,nx,nz)=>{ if(e.atkT<=0){ e.wantClip='__loco'; e.mode='sprint'; e.atkT=3; e.cdx=nx; e.cdz=nz; e.atkHit=false; e.fastMove=true; e.burstT=3; } return [0,0]; };
+QMODE.sprint=(e,dt,dist,nx,nz)=>{
+  if(!e.atkHit&&dist<2.2&&e.los&&(nx*e.cdx+nz*e.cdz)>.8){ e.atkHit=true; e.mode='wlunge'; e.atkT=.6; e.fastMove=true; e.lx=nx*6; e.lz=nz*6; wantClip(e,'Attack',1.5); return [e.lx,e.lz]; }
+  const r=chargeMove(e,dt,dist,nx,nz,8.2*e.spd,.65,()=>{},()=>{ e.mode='slam'; e.atkT=2.5; e.fastMove=false; e.dazed=true; wantClip(e,'WallSlam',1); P.shake=Math.max(P.shake,3*Math.max(.2,1-dist/12)); SFX.kickHit(); msg('IT SLAMMED THE WALL — NOW','#ffcf8a'); });
+  if(e.mode==='sprint'&&e.atkT<=0){ e.fastMove=false; e.steady=false; e.cd=R(2,3); } return r; };
+QMODE.wlunge=(e,dt,dist,nx,nz)=>{ if(!e.hitDone&&dist<e.d.r+PR+.7){ e.hitDone=true; hurtPlayer(e.d.dmg*LV.dmgMul*e.dmgM,e.x,e.z); P.shake=Math.max(P.shake,3); e.lx*=.15; e.lz*=.15; } if(e.atkT<=0){ e.hitDone=false; e.steady=false; e.fastMove=false; e.cd=R(3,5); e.st='retreat'; e.stT=R(1.5,2.5); return [0,0]; } return e.atkT>.25?[e.lx,e.lz]:[0,0]; };
+QMODE.slam=(e,dt)=>{ if(e.atkT<=0){ e.dazed=false; e.steady=false; e.cd=R(2,3); e.st='retreat'; e.stT=R(1,2); } return [0,0]; };
+// ================= damage reactions =================
+function quirkDmg(e,dmg,dx,dz,src,head){
+  if(e.dazed) dmg*=2;
+  if(e.type==='diver'&&!head&&src!=='boom'&&src!=='burn'&&e.rig){ const fx=Math.sin(e.rig.yaw), fz=Math.cos(e.rig.yaw), c=-(dx*fx+dz*fz)/(Math.hypot(dx,dz)||1);
+    if(c>.45){ dmg*=.35; if(e.lastHit) sparks(e.lastHit.x,e.lastHit.y,e.lastHit.z,-dx,-dz,6,[1,.85,.5]); SFX.ric&&SFX.ric(e); if(!e.armorTold&&rand()<.5){ e.armorTold=true; msg('ITS FRONT IS ARMOURED — FLANK IT OR AIM FOR THE HEAD','#ffcf8a'); } }
+    else if(c<-.3) dmg*=1.3; }
+  if(e.holding) e.grabDmg=(e.grabDmg||0)+dmg;
+  if(e.type==='hanger'&&!e.ceil&&!e.climb&&!e.falling&&!e.curled&&dmg>=18&&!e.dead&&e.hp-dmg>0&&(e.curlCd||0)<=0){ e.curled=true; e.curlCd=6; e.atkT=1.1; e.mode='curl'; e.steady=true; e.atkClip=false; wantClip(e,'Curl',1.2); vox(e,'pain'); }
+  if(e.curled&&e.mode==='curl') dmg*=.25;
+  if(e.type==='mutant'&&rand()<.3){ const s=rand()<.5?1:-1, l=Math.hypot(dx,dz)||1; e.kvx+=-dz/l*s*6; e.kvz+=dx/l*s*6; }
+  if(e.type==='angler'&&e.luring){ e.luring=false; e.idleClip=null; anglerLure(e,false); e.burstT=1; }
+  return dmg; }
+// per-frame upkeep for player-side effects and timers
+function updQuirks(dt){ if(P.grabT>0) P.grabT-=dt;
+  for(const e of LV.enemies){ if(e.dead) continue; if(e.curlCd>0) e.curlCd-=dt;
+    // an interrupted special (kicked, staggered) must never leave flags behind
+    if(e.atkT<=0&&(e.steady||e.fastMove||e.dazed||e.holding||e.curled)){ if(e.holding) P.grabT=0; e.steady=e.fastMove=e.dazed=e.holding=e.curled=false; e.cd=Math.max(e.cd,1); }
+    if(e.type==='angler'&&e.luring){ if(!e.lureS) anglerLure(e,true); const dist=Math.hypot(e.x-P.x,e.z-P.z); e.lureS.material.opacity=.5+.35*Math.sin(LV.t*2.3+e.animT); e.idleClip='Lure';
+      if(dist<4.5||(e.los&&litBy(e,dist,.985)&&dist<9)){ e.luring=false; e.idleClip=null; anglerLure(e,false); alertEnemy(e); e.burstT=1.2; e.cd=0; vox(e,'attack'); } } } }
+// which quirk each type gets
+Object.assign(EDEF.hollow,{ai:'shamble'}); Object.assign(EDEF.bloat,{ai:'retcher'}); Object.assign(EDEF.crawler,{ai:'flanker'}); Object.assign(EDEF.grinner,{ai:'orbiter'});
+Object.assign(EDEF.mannequin,{ai:'statue2'}); Object.assign(EDEF.skitter,{ai:'crab'}); Object.assign(EDEF.brute,{ai:'charger'}); Object.assign(EDEF.eel,{ai:'slither'});
+Object.assign(EDEF.angler,{ai:'lure'}); Object.assign(EDEF.diver,{ai:'armored'}); Object.assign(EDEF.mutant,{ai:'spasm'});
+EDEF.wrapper={name:'THE WRAPPER',hp:190,speed:1.25,r:.34,h:1.8,ar:1,hy0:0,hy1:1.75,hr:.34,head:[1.45,1.8,.2],dmg:30,score:240,pain:.25,mass:1.2,fps:6,scrap:4,gore:'red',ai:'watcher',reach:1.1};
+
 // ---------------- campaign ----------------------------------------------
 const CHAPTERS=[
   {nm:'THE LOBBY',boss:'attendant',intro:"Work order #4471: persistent fluorescent hum, sublevel B. You leaned on a wall to sign the ticket. The wall didn't hold. Now there's damp carpet as far as the light reaches — and something is walking toward the sound of your footsteps."},
@@ -5447,7 +5634,7 @@ function updatePlay(dt){
   updateLights(dt);
   LV.eventT-=dt; if(LV.eventT<=0&&P.alive){ LV.eventT=(R(38,70)-Math.min(15,LV.L))*(LV.anom==='hum'?.45:1); horrorEvent(); }
   if(P.alive&&P.hp<P.maxHp*.3){ P.heartT-=dt; if(P.heartT<=0){ P.heartT=.9; SFX.heart(); } }
-  PS.update(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updEject(dt); updDread(dt); if((LV.cullT=(LV.cullT||0)-dt)<=0){ LV.cullT=2; cullCorpses(); } updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
+  PS.update(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updEject(dt); updDread(dt); updQuirks(dt); if((LV.cullT=(LV.cullT||0)-dt)<=0){ LV.cullT=2; cullCorpses(); } updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
   updateVM(dt,Math.min(1.3,mf)); animVM(dt); updFlashBob(dt); updMini(dt); placeAimDot();
   revealT-=dt; if(revealT<=0){ revealT=.25; revealMap(); if(mapOn) drawMap(); }
   updateHUD(dt);
