@@ -4375,7 +4375,7 @@ function loadAssets(prog){
   for(const f of PROP_FILES) list.push(['prop',f,'assets/props/'+f+AEXT]);
   for(const f in MELEE) list.push(['melee',f,'assets/melee/'+f+AEXT]);
   for(const k in MONS) for(const f of MONS[k].files) list.push(['mon',k,'assets/mon/'+f+AEXT]);
-  list.push(['elk','elk','assets/mon/elk'+AEXT]);
+  list.push(['elk2','elk2','assets/mon/elk2'+AEXT]);
   let done=0;
   // some hosts won't serve .glb: then each model ships as a script that registers its base64 bytes
   const fetchGLB=(url,ok,bad)=>{ if(AEXT!=='.js'){ L.load(url,ok,undefined,bad); return; }
@@ -4384,7 +4384,7 @@ function loadAssets(prog){
       try{ L.parse(u8.buffer,'',ok,bad); }catch(e){ bad(e); } };
     document.head.appendChild(sc); };
   return Promise.all(list.map(([kind,k,url])=>new Promise(res=>fetchGLB(url,g=>{
-      if(kind==='melee') (ASSET.melee=ASSET.melee||{})[k]=g; else if(kind==='prop') (ASSET.props=ASSET.props||{})[k]=g; else if(kind==='gun') ASSET.guns[k]=g; else if(kind==='mon') (ASSET.mon[k]=ASSET.mon[k]||[]).push(g); else ASSET.elk=g;
+      if(kind==='melee') (ASSET.melee=ASSET.melee||{})[k]=g; else if(kind==='prop') (ASSET.props=ASSET.props||{})[k]=g; else if(kind==='gun') ASSET.guns[k]=g; else if(kind==='mon') (ASSET.mon[k]=ASSET.mon[k]||[]).push(g); else if(kind==='elk2'){ ASSET.elk2=g; ASSET.elk=g; } else ASSET.elk=g;
       done++; prog&&prog(Math.round(done/list.length*100)); res(); },err=>{ console.warn('asset failed',url,err); done++; res(); }))))
     .then(()=>{ ASSET.ready=true; });
 }
@@ -4598,7 +4598,43 @@ function cullCorpses(){
 }
 // ---- the Occupant: the elk demon, animated by hand (the model ships with only a T-pose)
 const _eq=new THREE.Quaternion(), _ee=new THREE.Euler();
+// the rigged and animated elk demon (walk, run, roar, strike). The hand-posed one below is the fallback
+function buildElk2Rig(e){
+  const src=ASSET.elk2, model=THREE.SkeletonUtils.clone(src.scene), root=new THREE.Group(), body=new THREE.Group(); root.add(body); body.add(model);
+  const sc=1.55*(e.scale||1); body.scale.setScalar(sc);
+  const mats=[], bones=[], boneBy={};
+  model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false; const m=o.material; if(m.map){ m.map.magFilter=THREE.NearestFilter; } const p=new THREE.MeshPhongMaterial({map:m.map,emissiveMap:m.map,emissive:0,skinning:true,shininess:10,specular:0x111111,fog:true,side:THREE.DoubleSide}); mats.push(p); o.material=p; }
+    if(o.isBone){ bones.push(o); boneBy[o.name]=o; } });
+  const B=n=>boneBy['mixamorig'+n], J={sp1:B('Spine'),sp2:B('Spine2'),head:B('Head'),lth:B('LeftUpLeg'),rth:B('RightUpLeg'),lua:B('LeftArm'),rua:B('RightArm')};
+  boneBy.Head=J.head;
+  const mixer=new THREE.AnimationMixer(model), acts={};
+  for(const c of src.animations){ const a=mixer.clipAction(c); if(/Attack|Scream|Death/.test(c.name)){ a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; } acts[c.name]=a; }
+  const wm=new THREE.MeshBasicMaterial({color:0xff6a2a,fog:true}); const w=new THREE.Mesh(new THREE.SphereGeometry(.12,10,8),wm); w.scale.set(1,1.2,.8); root.add(w);
+  const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:stationGlowTex(),color:0xff6030,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false,fog:true})); gl.scale.set(.6,.6,1); gl.position.z=.05; w.add(gl);
+  levelGroup.add(root);
+  return {elk:true,elk2:true,root,body,model,mats,bones,boneBy,J,rest:{},sc,yaw:R(0,TAU),react:{spine:0,head:0},lost:{},lostBones:[],meshes:[],arms:[],legs:[],weak:w,weakM:wm,weakGlow:gl,mixer,acts,cur:null,busy:0,st:'',ph:0,S:{}};
+}
+function elk2Sync(e,dt){
+  const rg=e.rig, J=rg.J, R_=rg.react; rigFacing(e,dt);
+  rg.root.position.set(e.x,e.y,e.z); rg.root.rotation.set(0,rg.yaw,0); rg.root.visible=!e.hidden; if(e.hidden){ rg.st=''; return; }
+  const sp=Math.hypot(e.vx,e.vz), t=LV.t+e.animT; R_.spine*=Math.exp(-dt*6); R_.head*=Math.exp(-dt*6);
+  let st=e.screamT>0?'scream':e.atkT>0&&e.mode==='melee'?'atk':(e.blinkT>0||e.staggerT>0||e.painT>.3)?'hurt':sp>.3?(sp>2.4*rg.sc*.62?'run':'walk'):'idle';
+  if(st!==rg.st){ rg.st=st;
+    if(st==='scream'){ glbPlay(rg,'Scream',.15,true,1.3); rg.acts.Scream.time=.9; }          // the roar itself: skip the wind-up so it fills the stand-off
+    else if(st==='atk'){ glbPlay(rg,'Attack2',.08,true,rg.acts.Attack2.getClip().duration/Math.max(.3,e.atkT)); }
+    else if(st==='hurt') glbPlay(rg,'Idle',.1,false,2.5);
+    else if(st==='run') glbPlay(rg,'Run',.18,false,1); else if(st==='walk') glbPlay(rg,'Walk',.22,false,1); else glbPlay(rg,'Idle',.3,false,1); }
+  if(st==='run') rg.acts.Run.setEffectiveTimeScale(clamp(sp/(2.72*rg.sc),.6,1.7)); else if(st==='walk') rg.acts.Walk.setEffectiveTimeScale(clamp(sp/(1.5*rg.sc),.5,2.2));
+  rg.mixer.update(dt);
+  // on top of the clip: it doubles over when hurt, flinches from hits, and turns its face from the light
+  const bend=R_.spine*.5+(st==='hurt'?.75:0)+(e.litT>.4?.35:0); if(bend&&J.sp1){ J.sp1.rotateX(bend*.6); if(J.sp2) J.sp2.rotateX(bend*.4); } if(J.head&&(R_.head||e.litT>.4)) J.head.rotateX(-R_.head+(e.litT>.4?.4:0));
+  { const key=WEAK_SPOTS[e.weakAt||0], Bn=J[key]||J.sp2; if(Bn){ rg.root.updateMatrixWorld(true); const wp=rg.root.worldToLocal(Bn.getWorldPosition(new THREE.Vector3())); wp.z+=key==='head'?.22:key==='sp2'||key==='sp1'?.26:.17; wp.y+=key==='lth'||key==='rth'?-.3:key==='lua'||key==='rua'?-.2:key==='sp2'?.1:0; if(!rg.weakInit){ rg.weakInit=true; rg.weak.position.copy(wp); } else rg.weak.position.lerp(wp,1-Math.exp(-dt*6)); } }
+  const pulse=1+Math.sin(t*(e.hunt?9:5))*.13; rg.weak.scale.set(pulse,pulse*1.2,pulse*.8);
+  e.weakFlash=Math.max(0,(e.weakFlash||0)-dt*3); rg.weakM.color.setRGB(1,.42+e.weakFlash*.58,.16+e.weakFlash*.84); rg.weakGlow.material.opacity=.4+e.weakFlash*.4+Math.sin(t*6)*.05;
+  const b=lightAt(e.x,e.z,true)*.45+.03; for(const m of rg.mats){ if(e.flashT>0) m.emissive.setRGB(.9,.9,.9); else m.emissive.setRGB(b*.8,b*.75,b*.72); m.color.setRGB(.55,.52,.5); }
+}
 function buildElkRig(e){
+  if(ASSET.elk2) return buildElk2Rig(e);
   const model=THREE.SkeletonUtils.clone(ASSET.elk.scene), root=new THREE.Group(), body=new THREE.Group(); root.add(body); body.add(model);
   const sc=2.85*(e.scale||1); body.scale.setScalar(sc);
   const mats=[], bones=[], boneBy={};
@@ -4614,6 +4650,7 @@ function buildElkRig(e){
   return {elk:true,root,body,model,mats,bones,boneBy,J,rest,sc,yaw:R(0,TAU),react:{spine:0,head:0},lost:{},lostBones:[],meshes:[],arms:[],legs:[],weak:w,weakM:wm,weakGlow:gl,ph:0,S:{}};
 }
 function elkSync(e,dt){
+  if(e.rig.elk2){ elk2Sync(e,dt); return; }
   const rg=e.rig, J=rg.J, rest=rg.rest; rigFacing(e,dt);
   rg.root.position.set(e.x,e.y,e.z); rg.root.rotation.set(0,rg.yaw,0); rg.root.visible=!e.hidden;
   const sp=Math.hypot(e.vx,e.vz), mv=clamp(sp/1.6,0,1.5), t=LV.t+e.animT; rg.ph+=sp*dt*(TAU/2.1);
