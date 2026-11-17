@@ -1812,7 +1812,7 @@ function resetRun(startL){
     ammo:{bullets:12,shells:0,nails:0,flares:0,bolts:0,cells:0,fuel:0,magnum:0,rifle:0},owned:new Array(NW).fill(false),weapon:1,lastWeapon:0,fireCd:0,battery:100,light:true,plugged:null,medkits:1,healT:0,healMax:1,healPh:0,charging:null,wasCharging:false,
     hasKey:false,kills:0,score:0,combo:0,comboT:0,levelTime:0,totalTime:0,iframes:0,shake:0,deadT:0,levelKills:0,heartT:0,fov:0,hurtFlash:0,pickFlash:0,sndT:0,hazT:0,
     rcP:0,rcPv:0,rcY:0,rcYv:0,rcDrift:0,adsHoldT:0,kickT:0,kickCd:0,kickHit:false,cy:0,cp:0,mag:new Array(NW).fill(0),spare:{},rlMode:'',packT:0,calmT:0,packing:false,reloadT:0,reloadW:-1,reloadMax:1,rcl:0,camKick:0,camKickV:0,camRoll:0,camRollV:0,ads:0,sprintPose:0,wallDist:9,wallPush:0,localX:0,localZ:0,startClock:Date.now()});
-  P.owned[0]=P.owned[1]=P.owned[13]=true; P.ammo.cells=2; P.ammo.nails=P.ammo.bolts=P.ammo.fuel=0;
+  P.owned[0]=P.owned[1]=P.owned[13]=true; P.gdur=new Array(NW).fill(1); P.jam=new Array(NW).fill(false); P.unjamT=0; P.gbreak=null; P.mbreakT=0; P.ammo.cells=2; P.ammo.nails=P.ammo.bolts=P.ammo.fuel=0;
   Object.assign(UP,{dmg:1,rate:1,speed:1,dashCd:1,drain:1,scav:1,vamp:0,spread:1,pellets:0,armorAbs:.6,almond:1,adren:false,taken:{},
     reload:1,ricochet:0,chain:0,bloodhound:0,overclock:0,headhunter:0,pyro:0,stat:0,magnet:1,suppressor:false,noArmor:false,noFlash:false,noHeal:false,scrapMul:1,scoreMul:1,enemyHp:1,shots:0,cards:3,luck:0,feed:0});
   // permanent perks
@@ -1848,7 +1848,7 @@ function makePS(max,size,opts){
   return ps;
 }
 // screen regions the censor blur covers (filled in by updCensor, read by the post pass)
-const CENSOR={n:0,regs:[...Array(8)].map(()=>new THREE.Vector4(0,0,0,0)),k:new Float32Array(8),on:false};
+const CENSOR={list:[],on:false,rt:null};
 const PS=makePS(1400,.06), MIST=makePS(300,.16,{cap:12,drag:3}), FIRE=makePS(500,.2,{add:true,fade:3.2,cap:14,drag:2});
 function blood(x,y,z,n,dx,dz,sp,col){ const s=sp||3; for(let k=0;k<n;k++){ const big=rand()<.2; drip(x,y,z,dx*R(.4,2)+R(-s,s)*.4,R(-.3,2.4),dz*R(.4,2)+R(-s,s)*.4,col||GORE.red.b,big?R(.02,.035):R(.008,.016),big&&rand()<.5); } }
 function mist(x,y,z,n,col){ for(let k=0;k<Math.ceil(n*.35);k++){ const c=bloodTone(col||GORE.red.b,x,y,z); HAZE.spawn(x+R(-.08,.08),y+R(-.08,.08),z+R(-.08,.08),R(-.5,.5),R(-.1,.3),R(-.5,.5),c[0],c[1],c[2],R(.3,.6),0,R(.05,.1),.42,false); } }
@@ -2340,7 +2340,7 @@ function placeAtFrac(kind,frac){ const tgt=LV.maxD*frac; let best=-1,bd=1e9; for
 function tryPickup(it){
   const k=it.kind; if(it.noPick>0) return false;
   if(k.startsWith('m_')){ const id=k.slice(2); if(!MELEE[id]) return false; if(P.melee===id&&P.meleeDur>=MELEE[id].dur*.8) return false;
-    if(P.melee!=='pipe'&&P.meleeDur>0){ const d=dropItem('m_'+P.melee,P.x+R(-.3,.3),P.z+R(-.3,.3)); d.val=P.meleeDur; d.noPick=1.5; }
+    if(P.melee!=='fists'&&P.meleeDur>0){ const d=dropItem('m_'+P.melee,P.x+R(-.3,.3),P.z+R(-.3,.3)); d.val=P.meleeDur; d.noPick=1.5; }
     equipMelee(id,it.val||MELEE[id].dur); if(P.weapon!==0&&!P.owned.some((o,i)=>i>0&&o&&hasAmmo(i))) switchWeapon(0); SFX.pickup('weapon'); msg('PICKED UP · '+MELEE[id].name,'#ffcf8a'); return true; }
   if(k==='scrap'){ const v=Math.ceil(it.val*UP.scrapMul*(LV.anom==='dark'?1.6:1)*(LV.anom==='swarm'?1.6:1)*(LV.anom==='hunted'?2:1)); RUN.scrap+=v; SFX.scrap(); P.scrapFlash=.4; return true; }
   if(k==='medkit'||k==='almond'){ if(UP.noHeal||(P.medkits||0)>=MEDKIT_MAX) return false; if(packUsed()>=PACK_SLOTS){ packFull(); return false; } P.medkits=(P.medkits||0)+1; msg(`+1 MEDKIT · ${P.medkits}/${MEDKIT_MAX}`+(isTouch?' — TAP HEALTH TO USE':' — PRESS H TO USE'),'#9dffb0'); SFX.pickup('heal'); }
@@ -2350,7 +2350,7 @@ function tryPickup(it){
   else if(k==='note'){ showNote(it.text||pick(NOTES)); }
   else if(k==='key'){ P.hasKey=true; if(LV.goal==='timed'){ LV.lockT=75; setTimeout(()=>msg('LOCKDOWN IN 75 SECONDS — GET TO THE EXIT','#ff6b6b'),900); SFX.blackout(); } msg('KEYCARD ACQUIRED — FIND THE EXIT','#6fc8ff'); SFX.pickup('key'); $('keyi').classList.remove('hidden'); updateObjective(); buzz(40); }
   else if(k==='tape'){ SFX.tape(); RUN.tapes++; showTape(LV.L); }
-  else if(k.startsWith('w_')){ const wi=W_ITEM[k]; const w=WEAPONS[wi]; const fresh=!P.owned[wi]; P.owned[wi]=true; P.ammo[w.ammo]=Math.min(AMMO_MAX[w.ammo],P.ammo[w.ammo]+AMMO_PICK[w.ammo]*(fresh?2:1)); if(fresh){ fillMag(wi); switchWeapon(wi); msg(`${w.name} ACQUIRED`,'#ffd27a'); showWeaponTip(wi); } else msg(`+${w.ammo.toUpperCase()}`); SFX.pickup('weapon'); buildWbar(); buzz(30); }
+  else if(k.startsWith('w_')){ const wi=W_ITEM[k]; const w=WEAPONS[wi]; const fresh=!P.owned[wi]; wearInit(); { const c=R(.45,1); P.gdur[wi]=fresh?c:Math.max(P.gdur[wi],c); if(!fresh&&c>=P.gdur[wi]) P.jam[wi]=false; } P.owned[wi]=true; P.ammo[w.ammo]=Math.min(AMMO_MAX[w.ammo],P.ammo[w.ammo]+AMMO_PICK[w.ammo]*(fresh?2:1)); if(fresh){ fillMag(wi); switchWeapon(wi); msg(`${w.name} ACQUIRED`,'#ffd27a'); showWeaponTip(wi); } else msg(`+${w.ammo.toUpperCase()}`); SFX.pickup('weapon'); buildWbar(); buzz(30); }
   P.pickFlash=k==='tape'?.4:1; return true;
 }
 function heal(n,silent,force){ if(UP.noHeal&&!force) return; P.hp=Math.min(P.maxHp,P.hp+n); if(!silent) P.pickFlash=1; }
@@ -2371,6 +2371,7 @@ function updItems(dt){
 }
 // ---------------- props (crates / barrels) ----------------------------
 function spawnProp(kind,x,z){
+  { const pr=kind==='barrel'?.32:.38, sp=LV&&LV.W?freeSpot(x,z,pr*1.38,pr):[x,z]; if(!sp) return null; x=sp[0]; z=sp[1]; }
   if(ASSET.ready&&hasProps()){ const q=prop3D(kind); q.obj.position.set(x,0,z); levelGroup.add(q.obj); const p={kind,x,z,spr:q.obj,mat:q.mat,hp:kind==='barrel'?14:22,r:q.hr*.9,y0:0,y1:q.h,hr:q.hr,alive:true,flashT:0}; LV.props.push(p); return p; }
   const mat=new THREE.SpriteMaterial({map:ART.items[kind],alphaTest:.5,fog:true}); const s=new THREE.Sprite(mat); s.center.set(.5,0);
   const sz=kind==='barrel'?1.05:.85; s.scale.set(sz,sz,1); s.position.set(x,0,z); levelGroup.add(s);
@@ -2440,7 +2441,7 @@ function updHazards(dt){
 }
 
 // ---------------- combat ---------------------------------------------
-function switchWeapon(i){ if(i===P.weapon||!P.owned[i]||P.plugged) return; cancelReload(); P.lastWeapon=P.weapon; P.weapon=i; VM.sw=1; P.fireCd=Math.max(P.fireCd,.22); buildWbar(); SFX.pickup('ammo'); }
+function switchWeapon(i){ if(i===P.weapon||!P.owned[i]||P.plugged||P.gbreak||P.mbreakT>0) return; cancelReload(); P.unjamT=0; P.lastWeapon=P.weapon; P.weapon=i; VM.sw=1; P.fireCd=Math.max(P.fireCd,.22); buildWbar(); SFX.pickup('ammo'); }
 function hasAmmo(i){ const w=WEAPONS[i]; return !w.ammo||totalAmmo(i)>=(w.cost||1); }
 function cycleWeapon(dir){ for(let k=1;k<=NW;k++){ const i=(P.weapon+dir*k+NW*10)%NW; if(P.owned[i]&&hasAmmo(i)){ switchWeapon(i); return; } } }
 function autoSwitch(){ for(const i of [11,6,2,3,7,5,10,4,9,1]) if(P.owned[i]&&hasAmmo(i)){ switchWeapon(i); return; } switchWeapon(0); }
@@ -2512,7 +2513,8 @@ function flameShot(w,by,bp){
   if(rand()<.06){ const d=Math.min(wt-.2,R(2,w.range)); addDecal('scorch',P.x-Math.sin(by)*d,.017,P.z-Math.cos(by)*d,0,1,0,R(.5,.9)); }
 }
 function fire(){
-  if(P.braceT>0||P.blocking) return;
+  if(P.braceT>0||P.blocking||P.unjamT>0||P.gbreak||P.mbreakT>0) return;
+  if(P.jam&&P.jam[P.weapon]&&!WEAPONS[P.weapon].melee){ if(P.fireCd<=0){ SFX.click(); P.fireCd=.35; P.jamFlash=1; msg(isTouch?'JAMMED — TAP RELOAD':'JAMMED — [R] CLEAR IT','#ff8a6a'); } return; }
   const w=WEAPONS[P.weapon];
   if(P.fireCd>0||VM.sw>.35||!P.alive||P.healT>0||P.plugged) return;
   const hd=H(P.weapon), useMag=!!(hd.mag&&w.ammo);
@@ -2521,7 +2523,7 @@ function fire(){
   if(!useMag&&w.ammo&&P.ammo[w.ammo]<(w.cost||1)){ SFX.click(); P.fireCd=.3; autoSwitch(); return; }
   P.fireCd=w.rate/UP.rate; if(useMag) P.mag[P.weapon]-=(w.cost||1); else if(w.ammo) P.ammo[w.ammo]-=(w.cost||1);
   if(w.melee){ meleeStart(); return; }
-  applyRecoil(P.weapon); P.adsHoldT=.7;
+  applyRecoil(P.weapon); P.adsHoldT=.7; gunWear(P.weapon);
   P.shake=Math.max(P.shake,w.shake*.65); VM.kick=1; UP.shots++;
   ejectCasing(P.weapon,w.id==='shotgun'?.38:w.id==='sawed'?.5:0); muzzleSmoke(w);
   if(w.flash){ VM.flashT=.05; VM.flash.material.rotation=R(0,TAU); VM.flash.scale.setScalar(w.flash); VM.flash.material.color.set(w.lcol||0xffffff); }
@@ -2641,6 +2643,8 @@ function fillMag(i){ const h=H(i), w=WEAPONS[i]; if(!h.mag||!w.ammo) return; if(
 function totalAmmo(i){ const w=WEAPONS[i]; if(!w.ammo) return Infinity; const sp=sparesOf(i); return P.ammo[w.ammo]+(H(i).mag?magOf(i):0)+(sp?sp.reduce((a,b)=>a+b,0):0); }
 function bestSpare(i){ const sp=sparesOf(i); if(!sp) return -1; let b=-1; for(let k=0;k<sp.length;k++) if(sp[k]>0&&(b<0||sp[k]>sp[b])) b=k; return b; }
 function startReload(manual){
+  if(P.jam&&P.jam[P.weapon]) return startUnjam();
+  if(P.unjamT>0||P.gbreak) return false;
   const i=P.weapon, w=WEAPONS[i], h=H(i); if(!h.mag||!w.ammo||P.reloadT>0||!P.alive||P.plugged) return false;
   if(P.mag[i]>=h.mag){ if(manual) SFX.click(); return false; }
   P.reloadW=i; P.rlPhase=0;
@@ -2797,19 +2801,20 @@ function smooth(a,b,x){ const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); }
 // ---------------- bodycam lens (post pass) ------------------------------
 const POST={rt:null,scene:new THREE.Scene(),cam:new THREE.OrthographicCamera(-1,1,1,-1,0,1),mat:null,size:new THREE.Vector2(),vel:new THREE.Vector2(),lastYaw:0,lastPitch:0};
 POST.mat=new THREE.ShaderMaterial({
-  uniforms:{tDiffuse:{value:null},uK:{value:.22},uCA:{value:.006},uVel:{value:POST.vel},uTime:{value:0},uAsp:{value:1.6},uSat:{value:.9},uPlain:{value:0},uCen:{value:CENSOR.regs},uCenK:{value:CENSOR.k},uPx:{value:new THREE.Vector2(1/800,1/450)}},
+  uniforms:{tDiffuse:{value:null},uK:{value:.22},uCA:{value:.006},uVel:{value:POST.vel},uTime:{value:0},uAsp:{value:1.6},uSat:{value:.9},uPlain:{value:0},tMask:{value:null},uMaskOn:{value:0},uPx:{value:new THREE.Vector2(1/800,1/450)}},
   vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
-  fragmentShader:`uniform sampler2D tDiffuse; uniform float uK,uCA,uTime,uAsp,uSat,uPlain; uniform vec2 uVel,uPx; uniform vec4 uCen[8]; uniform float uCenK[8]; varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tDiffuse; uniform float uK,uCA,uTime,uAsp,uSat,uPlain; uniform vec2 uVel,uPx; uniform sampler2D tMask; uniform float uMaskOn; varying vec2 vUv;
   vec2 lens(vec2 uv,float k){ vec2 c=uv*2.-1.; vec2 a=vec2(c.x*uAsp,c.y); float r2=dot(a,a)/(uAsp*uAsp+1.); c*=(1.+k*r2)/(1.+k); return c*.5+.5; }
   vec3 samp(vec2 uv){ vec3 s=vec3(0.); for(int i=0;i<5;i++){ float f=float(i)/4.-.5; s+=texture2D(tDiffuse,uv+uVel*f).rgb; } return s*.2; }
   void main(){ vec2 c=vUv*2.-1.; float r=length(c);
     float k=uK; vec2 uvR=lens(vUv,k*(1.+uCA*6.)), uvG=lens(vUv,k), uvB=lens(vUv,k*(1.-uCA*6.));
     vec3 col; col.r=samp(uvR).r; col.g=samp(uvG).g; col.b=samp(uvB).b;
     // TV censor: a heavy soft blur inside a feathered ellipse over each body
-    float cm=0.; for(int i=0;i<8;i++){ vec4 q=uCen[i]; if(uCenK[i]<=0.) continue; vec2 d=(uvG-q.xy)/q.zw; cm=max(cm,uCenK[i]*(1.-smoothstep(.72,1.,length(d)))); }
-    if(cm>0.){ vec2 bs=uPx*7.; vec2 bu=(floor(uvG/bs)+.5)*bs; vec3 s=vec3(0.); float w=0.;
-      for(int y=-3;y<=3;y++) for(int x=-3;x<=3;x++){ vec2 o=vec2(float(x),float(y)); float ww=exp(-dot(o,o)*.16); s+=texture2D(tDiffuse,bu+o*uPx*9.).rgb*ww; w+=ww; }
-      col=mix(col,s/w,cm); }
+    if(uMaskOn>0.){ float m=0.; for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++) m=max(m,texture2D(tMask,uvG+vec2(float(x),float(y))*uPx*3.).r);
+      float cm=m*(1.-texture2D(tMask,uvG).g);
+      if(cm>.01){ vec2 bs=uPx*6.; vec2 bu=(floor(uvG/bs)+.5)*bs; vec3 s=vec3(0.); float w=0.;
+        for(int y=-2;y<=2;y++) for(int x=-2;x<=2;x++){ vec2 o=vec2(float(x),float(y)); float ww=exp(-dot(o,o)*.25); s+=texture2D(tDiffuse,bu+o*uPx*5.).rgb*ww; w+=ww; }
+        col=mix(col,s/w,cm); } }
     float l=dot(col,vec3(.299,.587,.114)); col=mix(vec3(l),col,uSat);
     col*=1.-smoothstep(.75,1.45,r)*.75*(1.-uPlain);
     col+=(1.-uPlain)* (fract(sin(dot(vUv*vec2(931.,577.)+uTime,vec2(12.9898,78.233)))*43758.5453)-.5)*.035;
@@ -2821,6 +2826,7 @@ function postResize(){
   renderer.getDrawingBufferSize(POST.size);
   if(POST.rt) POST.rt.dispose();
   POST.rt=new THREE.WebGLRenderTarget(Math.max(2,POST.size.x),Math.max(2,POST.size.y),{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:true});
+  try{ const dt=new THREE.DepthTexture(POST.rt.width,POST.rt.height); dt.type=THREE.UnsignedIntType; POST.rt.depthTexture=dt; }catch(e){}
   POST.mat.uniforms.tDiffuse.value=POST.rt.texture; POST.mat.uniforms.uAsp.value=POST.size.x/POST.size.y; POST.mat.uniforms.uPx.value.set(1/POST.size.x,1/POST.size.y);
 }
 function renderFrame(withVM){
@@ -2830,6 +2836,8 @@ function renderFrame(withVM){
   POST.mat.uniforms.uPlain.value=plain?1:0; if(plain){ POST.mat.uniforms.uCA.value=0; }
   if(bc){ if(!POST.rt) postResize(); renderer.setRenderTarget(POST.rt); }
   renderer.clear(); renderer.render(scene,camera);
+  const masked=bc&&CENSOR.on&&POST.rt.depthTexture; POST.mat.uniforms.uMaskOn.value=masked?1:0;
+  if(masked){ const cc=renderer.getClearColor(new THREE.Color()), ca=renderer.getClearAlpha(); renderCensorMask(POST.rt,withVM); POST.mat.uniforms.tMask.value=CENSOR.rt.texture; renderer.setClearColor(cc,ca); renderer.setRenderTarget(POST.rt); }
   if(withVM){ renderer.clearDepth(); renderer.render(vmScene,vmCam); }
   if(bc){
     // rotational motion blur from camera turn rate
@@ -3669,6 +3677,16 @@ function rtex(key,w,h,fn,rep){ if(RTX[key]) return RTX[key]; const c=cv(w,h),x=c
 function grime(x,w,h,n,a){ for(let i=0;i<n;i++){ x.fillStyle=`rgba(0,0,0,${R(.03,a||.12)})`; x.fillRect(R(0,w),R(0,h),R(1,w/6),R(1,h/6)); } }
 function rmat(key,map,o){ const m=new THREE.MeshPhongMaterial(Object.assign({map,shininess:8,specular:0x111111,fog:true},o||{})); return m; }
 function rbox(x,y,z,w,h,d,mat,ry,rx,rz){ const m=new THREE.Mesh(boxGeo(w,h,d),mat); m.position.set(x,y,z); m.rotation.set(rx||0,ry||0,rz||0); m.castShadow=true; m.receiveShadow=true; levelGroup.add(m); return m; }
+// ---- room for things: nothing is placed through a wall, in a doorway, or inside something already there
+function wallClear(x,z,r){ for(const [a,b] of [[-r,-r],[r,-r],[-r,r],[r,r],[-r,0],[r,0],[0,-r],[0,r],[0,0]]) if(solid(cellOf(x+a),cellOf(z+b))) return false; return true; }
+function spotFree(x,z,rw,ro){ ro=ro==null?rw:ro; if(rw>0&&!wallClear(x,z,rw)) return false; if(LV.doorSet&&LV.doorSet.has(cellOf(z)*LV.W+cellOf(x))) return false;
+  for(const b of LV.blockers||[]) if(b.on&&x+ro>b.x0&&x-ro<b.x1&&z+ro>b.z0&&z-ro<b.z1) return false;
+  for(const p of LV.props||[]) if(p.alive&&Math.hypot(p.x-x,p.z-z)<(p.r||.35)+ro) return false;
+  for(const l of LV.lockers||[]) if(Math.abs(l.x-x)<.36+ro&&Math.abs(l.z-z)<.36+ro) return false; return true; }
+function freeSpot(x,z,rw,ro,tries){ if(spotFree(x,z,rw,ro)) return [x,z]; for(let k=0;k<(tries||14);k++){ const a=R(0,TAU), d=R(.08,.55); if(spotFree(x+Math.cos(a)*d,z+Math.sin(a)*d,rw,ro)) return [x+Math.cos(a)*d,z+Math.sin(a)*d]; } return null; }
+// last pass once a floor is dressed: anything that ended up inside something placed after it is moved clear, or taken away
+function settleClutter(){ for(const p of LV.props||[]){ if(!p.alive) continue; p.alive=false; const r=p.r||.35, sp=spotFree(p.x,p.z,r*1.3,r)?[p.x,p.z]:freeSpot(p.x,p.z,r*1.3,r,20); p.alive=true;
+    if(!sp){ p.alive=false; if(p.spr&&p.spr.parent) p.spr.parent.remove(p.spr); continue; } if(sp[0]!==p.x||sp[1]!==p.z){ p.x=sp[0]; p.z=sp[1]; if(p.spr) p.spr.position.set(p.x,p.spr.position.y,p.z); } } }
 function blocker(x0,z0,x1,z1){ LV.blockers=LV.blockers||[]; const b={x0:Math.min(x0,x1),x1:Math.max(x0,x1),z0:Math.min(z0,z1),z1:Math.max(z0,z1),on:true}; LV.blockers.push(b); return b; }
 function glowAt(x,y,z,col,s,op){ const g=new THREE.Sprite(new THREE.SpriteMaterial({map:stationGlowTex(),color:col,transparent:true,opacity:op||.5,blending:THREE.AdditiveBlending,depthWrite:false,fog:true})); g.position.set(x,y,z); g.scale.set(s,s,1); levelGroup.add(g); return g; }
 // cells of a room that touch a wall (and not a doorway), with the inward normal
@@ -3758,10 +3776,10 @@ function roomCollapsed(r){
   const holeT=rtex('hole',64,64,(x,w,h)=>{ x.fillStyle='#000'; x.beginPath(); x.moveTo(8,10); for(let k=0;k<14;k++){ const a=k/14*TAU; x.lineTo(32+Math.cos(a)*R(18,30),32+Math.sin(a)*R(18,30)); } x.closePath(); x.fill(); });
   const hole=new THREE.Mesh(new THREE.PlaneGeometry(C*2.2,C*2.2),new THREE.MeshBasicMaterial({map:holeT,transparent:true,alphaTest:.5,color:0x000000,fog:false}));
   hole.rotation.x=Math.PI/2; hole.position.set(cx,WALLH-.015,cz); levelGroup.add(hole); LV.holes.push({x:cx,z:cz});
-  for(let k=0;k<RI(6,10);k++){ const x=cx+R(-1.4,1.4), z=cz+R(-1.4,1.4); if(solid(cellOf(x),cellOf(z))) continue; rbox(x,.02+k*.012,z,C*.48,.025,C*.48,tileM,R(0,TAU),R(-.15,.15),R(-.15,.15)); }
-  for(let k=0;k<RI(1,2);k++){ const x=cx+R(-.6,.6), z=cz+R(-.6,.6); rbox(x,.5,z,C*.48,.025,C*.48,tileM,R(0,TAU),R(.9,1.3),0); }
+  for(let k=0;k<RI(6,10);k++){ const x=cx+R(-1.4,1.4), z=cz+R(-1.4,1.4); if(!wallClear(x,z,.43)) continue; rbox(x,.02+k*.012,z,C*.48,.025,C*.48,tileM,R(0,TAU),R(-.15,.15),R(-.15,.15)); }
+  for(let k=0;k<RI(1,2);k++){ const x=cx+R(-.6,.6), z=cz+R(-.6,.6); if(!wallClear(x,z,.62)) continue; rbox(x,.5,z,C*.48,.025,C*.48,tileM,R(0,TAU),R(.9,1.3),0); }
   const rub=rmat('rubble',rtex('rubble',16,16,(x)=>{ x.fillStyle='#5a5246'; x.fillRect(0,0,16,16); grime(x,16,16,20,.3); }));
-  for(let k=0;k<RI(8,14);k++) rbox(cx+R(-1.2,1.2),R(.03,.08),cz+R(-1.2,1.2),R(.06,.2),R(.05,.14),R(.06,.2),rub,R(0,TAU),R(0,1));
+  for(let k=0;k<RI(8,14);k++){ const x=cx+R(-1.2,1.2), z=cz+R(-1.2,1.2); if(!wallClear(x,z,.16)) continue; rbox(x,R(.03,.08),z,R(.06,.2),R(.05,.14),R(.06,.2),rub,R(0,TAU),R(0,1)); }
   const wireM=new THREE.MeshPhongMaterial({color:0x101010,fog:true});
   for(let k=0;k<RI(2,4);k++){ const g=new THREE.Group(); g.position.set(cx+R(-.6,.6),WALLH,cz+R(-.6,.6)); const len=R(.6,1.4); const w=new THREE.Mesh(boxGeo(.015,len,.015),wireM); w.position.y=-len/2; g.add(w); levelGroup.add(g); LV.wires.push({g,ph:R(0,TAU),sp:R(.6,1.4)}); }
   // the light here is dead
@@ -4005,7 +4023,7 @@ function clearRec(){ REC.frames.length=0; }
 // ---- continue: a snapshot at the start of every floor
 const SAVE_KEY='noclipped_run';
 function saveRun(){
-  try{ const p={}; for(const k of ['hp','maxHp','armor','ammo','owned','weapon','mag','spare','medkits','battery','kills','score','totalTime','startClock']) p[k]=P[k];
+  try{ const p={}; for(const k of ['hp','maxHp','armor','ammo','owned','gdur','jam','melee','meleeDur','weapon','mag','spare','medkits','battery','kills','score','totalTime','startClock']) p[k]=P[k];
     const hm={}; for(const k in HANDLING) hm[k]=HANDLING[k].mag;
     localStorage.setItem(SAVE_KEY,JSON.stringify({v:1,L:RUN.L,P:p,UP,RUN,hm,t:Date.now()})); }catch(e){}
 }
@@ -4015,7 +4033,7 @@ function continueRun(){
   const s=loadRun(); if(!s) return; auInit(); if(isTouch) goFull();
   resetRun(s.L); Object.assign(P,JSON.parse(JSON.stringify(s.P))); Object.assign(UP,s.UP); Object.assign(RUN,s.RUN);
   for(const k in s.hm) if(HANDLING[k]) HANDLING[k].mag=s.hm[k];
-  P.alive=true; startLevel(s.L);
+  P.alive=true; wearInit(); P.unjamT=0; P.gbreak=null; P.mbreakT=0; if(P.melee&&MELEE[P.melee]){ const md=P.meleeDur; equipMelee(P.melee,md); } startLevel(s.L);
 }
 function refreshContinue(){ const s=loadRun(), b=$('btnCont'); if(!b) return; b.classList.toggle('hidden',!s); if(s) b.textContent=`CONTINUE · FLOOR ${levelName(s.L)}`; }
 // ---- adaptive resolution: hold the frame rate on slower phones
@@ -4131,8 +4149,8 @@ function makeDecor(kind){
 }
 function placeDecor(kind,x,z,yaw){
   const L=LV.L, canMimic=L>=1&&(LV.mimics||0)<Math.min(3,1+Math.floor(L/3));
-  if(canMimic&&rand()<.13){ NEXT_DISGUISE=kind; const e=spawnEnemy('mimic',cellOf(x),cellOf(z),false); e.x=x; e.z=z; LV.mimics=(LV.mimics||0)+1; if(e.rig){ e.rig.yaw=yaw; } return e; }
-  const d=makeDecor(kind); d.g.position.set(x,0,z); d.g.rotation.y=yaw; levelGroup.add(d.g);
+  if(canMimic&&rand()<.13){ const sp=freeSpot(x,z,.38,.3); if(!sp) return null; x=sp[0]; z=sp[1]; NEXT_DISGUISE=kind; const e=spawnEnemy('mimic',cellOf(x),cellOf(z),false); e.x=x; e.z=z; LV.mimics=(LV.mimics||0)+1; if(e.rig){ e.rig.yaw=yaw; } return e; }
+  const d=makeDecor(kind), sp=freeSpot(x,z,Math.max(d.hw,d.hd||d.hw)*1.42+.02,Math.max(d.hw,d.hd||d.hw)); if(!sp) return null; x=sp[0]; z=sp[1]; d.g.position.set(x,0,z); d.g.rotation.y=yaw; levelGroup.add(d.g);
   blocker(x-d.hw*.9,z-d.hw*.9,x+d.hw*.9,z+d.hw*.9); return d;
 }
 function scatterDecor(){
@@ -4330,13 +4348,19 @@ function updBleed(dt){
 // ---- supply lockers: loud to pry open, worth it if nothing hears you
 function lockerTex(){ return rtex('locker',32,64,(x,w,h)=>{ x.fillStyle='#4a5048'; x.fillRect(0,0,w,h); x.fillStyle='#3a3f38'; x.fillRect(2,2,w-4,h-4); for(let i=0;i<5;i++){ x.fillStyle='#1c1f1b'; x.fillRect(8,6+i*3,16,1.5); } x.fillStyle='#b8b090'; x.fillRect(24,30,3,8); x.fillStyle='#c8b040'; x.fillRect(6,44,20,7); x.fillStyle='#1a1a10'; x.font='bold 5px monospace'; x.fillText('SUPPLY',7,49.5); grime(x,w,h,30,.2); }); }
 function placeLockers(){
-  LV.lockers=[]; const W=LV.W, n=LV.L===0?1:RI(2,3), m=new THREE.MeshPhongMaterial({map:lockerTex(),shininess:30,fog:true}), side=new THREE.MeshPhongMaterial({color:0x353a33,fog:true});
+  LV.lockers=[]; const W=LV.W, n=LV.L===0?1:RI(2,3), m=new THREE.MeshPhongMaterial({map:lockerTex(),shininess:30,fog:true}), side=new THREE.MeshPhongMaterial({color:0x353a33,fog:true}), inner=new THREE.MeshPhongMaterial({color:0x1b1d19,shininess:6,fog:true}), hook=new THREE.MeshPhongMaterial({color:0x6a6a62,shininess:40,fog:true});
   const rooms=(LV.rooms||[]).filter(r=>Math.hypot(r.ci-LV.start.i,r.cj-LV.start.j)>5);
   for(let k=0;k<n&&rooms.length;k++){ const r=rooms.splice(RI(0,rooms.length-1),1)[0]; const wc=wallCells(r); if(!wc.length) continue; const c=pick(wc);
     const x=(c.i+.5)*C-c.nx*(C*.5-.24), z=(c.j+.5)*C-c.nz*(C*.5-.24), yaw=Math.atan2(c.nx,c.nz);
+    if(!spotFree(x,z,0,.34)) { k--; if(!rooms.length) break; continue; }
     const g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=yaw; levelGroup.add(g);
-    const body=new THREE.Mesh(boxGeo(.62,1.85,.42),[side,side,side,side,m,side]); body.position.y=.925; body.castShadow=true; body.receiveShadow=true; g.add(body);
-    const doorP=new THREE.Group(); doorP.position.set(-.31,0,.215); g.add(doorP); const dm=new THREE.Mesh(boxGeo(.62,1.82,.02),m); dm.position.set(.31,.925,0); doorP.add(dm);
+    const pl=(w,h,d,px,py,pz,mt)=>{ const o=new THREE.Mesh(boxGeo(w,h,d),mt); o.position.set(px,py,pz); o.castShadow=true; o.receiveShadow=true; g.add(o); return o; };
+    pl(.62,1.85,.02,0,.925,-.2,side); pl(.02,1.85,.42,-.3,.925,0,side); pl(.02,1.85,.42,.3,.925,0,side); pl(.62,.02,.42,0,1.84,0,side); pl(.62,.06,.42,0,.03,0,side);  // back, sides, top, floor
+    pl(.58,1.78,.005,0,.93,-.187,inner); pl(.005,1.78,.38,-.287,.93,0,inner); pl(.005,1.78,.38,.287,.93,0,inner);                                              // dark inside
+    pl(.58,.02,.36,0,1.46,-.01,side); pl(.58,.015,.04,0,1.455,.17,side);                                                                                         // shelf with a lip
+    for(const hx of [-.15,.15]){ pl(.015,.015,.07,hx,1.36,-.15,hook); pl(.015,.04,.015,hx,1.34,-.115,hook); }                                                  // coat hooks
+    pl(.5,.004,.3,0,.065,0,inner);  pl(.012,1.7,.012,0,.93,-.17,side);                                                                                           // floor mat, centre seam
+    const doorP=new THREE.Group(); doorP.position.set(-.31,0,.215); g.add(doorP); const dm=new THREE.Mesh(boxGeo(.62,1.82,.02),[side,side,side,side,m,inner]); dm.position.set(.31,.925,0); dm.castShadow=true; doorP.add(dm);
     blocker(x-.35,z-.35,x+.35,z+.35);
     LV.lockers.push({x,z,nx:c.nx,nz:c.nz,open:false,doorP,fx:x,fz:z}); }
 }
@@ -5120,6 +5144,7 @@ function animVM(dt){
   ANIM.pushT=Math.max(0,ANIM.pushT-dt); const pu=ANIM.push, pt=ANIM.pushT>0?1-ANIM.pushT/.7:0; pu.g.visible=ANIM.pushT>0;
   if(pu.g.visible){ const o=key3([[0,-.22,-.45,-.2],[.35,-.12,-.1,-.42],[.55,-.11,-.08,-.5],[1,-.24,-.45,-.22]],pt); pu.g.position.set(o[0],o[1],o[2]); pu.g.rotation.set(-.2,.25,.2);
     if(w){ const k=Math.sin(pt*Math.PI); w.g.position.x+=.05*k; w.g.position.y-=.04*k; w.g.rotation.z-=.25*k; } }
+  if(P.weapon>0) animWear(VM.list[P.weapon],dt);
   meleeArms();
 }
 function doorPush(){ ANIM.pushT=.7; }
@@ -5402,7 +5427,8 @@ EDEF.wrapper={name:'THE WRAPPER',hp:190,speed:1.25,r:.34,h:1.8,ar:1,hy0:0,hy1:1.
 
 // ---------------- melee: found weapons that wear out, each swung its own way; blades take limbs, blunt things crush ----------------
 const MELEE={
-  pipe:    {moves:['slashR','slashL','over'],name:'LEAD PIPE',   short:'PIPE', kind:'blunt', style:'smash',dmg:45, rate:.62,range:1.9,arc:.55,hits:1,knock:5, sever:.04,dur:0},
+  fists:   {moves:['thrust','slashL','thrust','upper'],name:'BARE HANDS',short:'FIST',kind:'blunt',style:'stab',dmg:20,rate:.4,range:1.45,arc:.6,hits:1,knock:3,sever:0,dur:0,noModel:1},
+  pipe:    {moves:['slashR','slashL','over'],name:'LEAD PIPE',   short:'PIPE', kind:'blunt', style:'smash',dmg:45, rate:.62,range:1.9,arc:.55,hits:1,knock:5, sever:.04,dur:80},
   knife:   {moves:['slashR','slashL','thrust'],name:'COMBAT KNIFE',short:'KNIFE',kind:'blade', style:'stab', dmg:40, rate:.34,range:1.55,arc:.72,hits:1,knock:1, sever:.18,dur:70,bleed:1},
   machete: {moves:['slashR','slashL','diag','slashL'],name:'MACHETE',     short:'MACH', kind:'blade', style:'slash',dmg:64, rate:.52,range:2.05,arc:.3, hits:2,knock:2, sever:.5, dur:45,bleed:1},
   cleaver: {moves:['slashR','slashL','over'],name:'BUTCHER CLEAVER',short:'CLVR',kind:'blade',style:'chop',dmg:72,rate:.56,range:1.75,arc:.45,hits:1,knock:2,sever:.62,dur:40,bleed:1},
@@ -5413,7 +5439,7 @@ const MELEE={
   wrench:  {moves:['slashR','slashL','over'],name:'PIPE WRENCH', short:'WRCH', kind:'blunt', style:'smash',dmg:56, rate:.56,range:1.85,arc:.5, hits:1,knock:6, sever:.03,dur:55},
   hammer:  {moves:['slashR','slashL','over'],name:'CLAW HAMMER', short:'HMR',  kind:'blunt', style:'smash',dmg:64, rate:.6, range:1.7, arc:.55,hits:1,knock:5, sever:.06,dur:48},
 };
-const MELEE_TIER=[['knife','wrench','hammer','machete','cleaver'],['knife','machete','cleaver','tomahawk','bat','hammer'],['tomahawk','bat','axe','katana','machete']];
+const MELEE_TIER=[['pipe','knife','wrench','hammer','machete','cleaver'],['knife','machete','cleaver','tomahawk','bat','hammer'],['tomahawk','bat','axe','katana','machete']];
 const MS={t:9,dur:1,hit:false,side:1,style:'smash'};
 function meleeInit(){ P.melee=P.melee||'pipe'; P.meleeDur=P.meleeDur||0; }
 function equipMelee(id,dur){
@@ -5423,8 +5449,11 @@ function equipMelee(id,dur){
 }
 // viewmodel: the found weapon in your right hand
 function buildMeleeVM(id){
-  const w=VM.list[0], gl=ASSET.melee&&ASSET.melee[id]; if(!w||!gl) return;
+  const w=VM.list[0], gl=ASSET.melee&&ASSET.melee[id]; if(!w||(!gl&&!MELEE[id].noModel)) return;
   for(const c of w.g.children.slice()) if(c!==w.mz) w.g.remove(c);
+  if(MELEE[id].noModel){ meleeFist(new THREE.Group(),0,1); const piv=new THREE.Group(); w.g.add(piv); const model=new THREE.Group(); const k=new THREE.Mesh(new THREE.BoxGeometry(.105,.1,.115),ARMM.glove); model.add(k); piv.add(model);
+    w.fistR=meleeFist(piv,-.03,1); w.fistR.position.z=.04; piv.rotation.set(-1.25,.05,.05); w.base.set(.17,-.2,-.42); w.piv=piv; w.parts={}; w.model=model; w.noTrail=true; w.mz.position.set(0,.06,0); return; }
+  w.noTrail=false;
   const piv=new THREE.Group(); w.g.add(piv); const model=gl.scene.clone(true); model.traverse(o=>{ if(o.isMesh){ o.material=gunMat(o.material); } }); piv.add(model);
   // a proper fist closed round the grip; the forearm is drawn separately so it always comes up from the body (see meleeArms)
   const m=MELEE[id];
@@ -5476,7 +5505,7 @@ Object.assign(MS,{t:9,cur:[0,0,0,0,0,0],fr:null,drag:0,dragK:1,k:0,kv:0,kq:[0,0,
 function meleeStart(){
   const m=MELEE[P.melee], now=LV?LV.t:0; if(now-(MS.last||-9)>m.rate*1.9) MS.combo=0; MS.last=now;
   // every swing costs breath; swing on empty and it comes out slow and weak
-  const cost=4+m.rate*9+(m.two?2:0); MS.tired=MOT.stamina<cost; MOT.stamina=Math.max(0,MOT.stamina-cost); MOT.stamCd=1.1;
+  MS.wear=meleeWearK(); const cost=4+m.rate*9+(m.two?2:0); MS.tired=MOT.stamina<cost; MOT.stamina=Math.max(0,MOT.stamina-cost); MOT.stamCd=1.1;
   const n=m.moves?m.moves.length:1, ci=(MS.combo||0)%n, mv=m.moves?m.moves[ci]:m.style; MS.combo=(MS.combo||0)+1; const MV=MOVES[mv]||[m.style,-MS.side];
   // the last move of a chain is the finisher: a longer wind-up and a harder hit
   MS.fin=n>=3&&ci===n-1&&!MS.tired; const slowK=(m.two?1.1:1)*(MS.fin?1.15:1)*(MS.tired?1.45:1);
@@ -5533,6 +5562,8 @@ function animMeleeVM(w,dt){
     if(p>=1) MS.cur=[0,0,0,0,0,0];
   }
   const g=w.g, q=MS.kq, K=MS.k;
+  if(P.mbreakT>0){ const p=1-P.mbreakT/.7; if(w.model) w.model.visible=p<.12||Math.floor(p*30)%2===0&&p<.3; g.position.x+=R(-.012,.012)*(1-p); g.position.y-=.75*p*p; g.rotation.z-=1.1*p*p; g.rotation.x+=.5*p; }
+  else if(w.model) w.model.visible=true;
   if(P.block>.01){ const b=P.block, two=MELEE[P.melee]&&MELEE[P.melee].two, tz=w.piv.rotation.z; g.position.x+=(two?-.02:-.13)*b; g.position.y+=(two?.2:.17)*b; g.position.z+=.06*b; g.rotation.x+=.15*b; g.rotation.y+=.25*b; g.rotation.z+=(1.35-tz)*b; }
   g.position.x+=o[0]+q[0]*K*.25; g.position.y+=o[1]+q[1]*K*.25; g.position.z+=o[2]+q[2]*K*.25; g.rotation.x+=o[3]+q[3]*K; g.rotation.y+=o[4]+q[4]*K; g.rotation.z+=o[5]+q[5]*K;
   meleeTrail(w,dt);
@@ -5553,7 +5584,7 @@ function meleeStrike(){
     const hx=e.x-nx*e.d.r*.8, hz2=e.z-nz*e.d.r*.8, Y=e.y+hy;
     // stabbing something that isn't facing you goes deep
     let back=false; if(m.style==='stab'&&e.rig){ const fxE=Math.sin(e.rig.yaw), fzE=Math.cos(e.rig.yaw); back=(fxE*nx+fzE*nz)>.3; }
-    const fin=MS.fin, base=m.dmg*.85*(MS.tired?.55:1)*R(.9,1.1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1)*(hz?1.3:1);
+    const fin=MS.fin, base=m.dmg*.85*MS.wear*(MS.tired?.55:1)*R(.9,1.1)*(back?2.6:1)*(m.kind==='blunt'&&e.type==='diver'?1.4:1)*(fin?1.4:1)*(hz?1.3:1);
     // ---- where it landed: head, an arm, a leg, or the trunk
     const sv=!e.boss&&!e.stalker&&e.rig&&e.rig.glb, rg=e.rig, has=n=>sv&&rg.boneBy[n]&&!rg.lostBones.includes(rg.boneBy[n]), other=q=>q==='Left'?'Right':'Left';
     const hf=hy/(e.d.hy1*sc), off=-((e.x-P.x)*Math.cos(P.yaw)-(e.z-P.z)*Math.sin(P.yaw)), wide=Math.abs(off)>e.d.r*e.scale*.38;
@@ -5579,6 +5610,7 @@ function meleeStrike(){
     // they go the way the weapon was going: sideways off a slash, buckled under a chop, lifted by a rising cut
     const lethal=e.hp<=dmg*(head&&!sv?2.1:1)*UP.dmg||(out==='sever'&&zone==='head'), movable=!e.boss&&!e.stalker&&!e.steady, kn=m.knock*(e.d.mass<1.5?1:.6)*(fin?1.7:1)*(lethal?1.8:1);
     if(movable&&MS.pose==='slash'){ const lat=(3+kn*.9)/e.d.mass; e.kvx+=-nz*MS.side*lat; e.kvz+=nx*MS.side*lat; }
+    dmg*=MS.wear; // a blunted edge or split handle doesn't land like it did
     e.lastHit={x:hx,y:Y,z:hz2,src:blade?'blade':'blunt',head,t:LV.t};
     if(e.rig&&(e.rig.glb||e.rig.elk)) glbHit(e,hx,Y,hz2,dmg,blade?'sawed':'shotgun',head); else rigHit&&e.rig&&rigHit(e,hx,Y,hz2,dmg,'pipe',head);
     // whether they reel is decided below, not by the generic flinch
@@ -5609,7 +5641,7 @@ function meleeStrike(){
     meleeSlow(MS.cut?.2:killed?.12:big?.07:.045,MS.cut?.2:killed?.3:.4);
     P.shake=Math.max(P.shake,big?4.4:2.8); P.camKickV+=(MS.pose==='upper'?-1:1)*(big?2.4:1.4); P.camRollV+=-MS.side*(MS.pose==='slash'?1:.3)*(big?.9:.5); MOT.spv-=heavy?.6:.35; buzz(big?[25,20,45]:30); meleeStain();
     if(fin||killed){ P.fov=Math.max(P.fov||0,fin&&killed?3:1.8); }
-    if(m.dur&&cands.length){ P.meleeDur-=Math.min(cands.length,m.hits,2); if(P.meleeDur<=0) meleeBreak(); } }
+    if(m.dur&&cands.length){ const d0=P.meleeDur/m.dur; P.meleeDur-=Math.min(cands.length,m.hits,2); if(d0>.3&&P.meleeDur/m.dur<=.3&&P.meleeDur>0) msg(`THE ${m.name} IS FALLING APART`,'#ffcf8a'); if(P.meleeDur<=0) meleeBreak(); } }
   else { const wh=rayWall(P.x,P.z,fx,fz,m.range); if(wh.ix>=0){ const x=P.x+fx*wh.t, z=P.z+fz*wh.t; sparks(x,1.1,z,wh.nx,wh.nz,blade?10:5); SFX.pipeHit({x,z}); P.shake=Math.max(P.shake,1.4); hitStop=Math.max(hitStop,.03); } }
 }
 function meleeFx(e,x,y,z,nx,nz,m,head,blade){
@@ -5642,11 +5674,14 @@ function meleeClang(x,y,z,e){ for(let k=0;k<10;k++) PS.spawn(x,y,z,R(-4,4),R(0,4
 // the edge stops on bone: chips, a crack, and the weapon jars in the hand
 function meleeBone(x,y,z,e){ for(let k=0;k<9;k++) PS.spawn(x,y,z,R(-2.5,2.5),R(.5,3.5),R(-2.5,2.5),.9,.86,.74,R(.25,.5),12);
   if(AU.on){ const o=dest(e,1); woodCrack(o,.6,0); thud(o,140,.5,0,.07); } buzz([15,10,35]); }
-function meleeBreak(){ const m=MELEE[P.melee]; msg(`THE ${m.name} BREAKS`,'#ff8a6a'); SFX.crate&&SFX.crate(P); P.shake=Math.max(P.shake,1.5);
-  for(let k=0;k<10;k++) sparks(P.x-Math.sin(P.yaw)*.6,1.1,P.z-Math.cos(P.yaw)*.6,0,0,1); equipMelee('pipe'); }
+// it snaps: the head goes one way, you're left holding the stub for a moment, then it's dropped and you're down to your hands
+function meleeBreak(){ if(P.mbreakT>0) return; const m=MELEE[P.melee]; msg(`THE ${m.name} BREAKS`,'#ff8a6a'); SFX.crate&&SFX.crate(P); P.shake=Math.max(P.shake,1.8); buzz([40,30,60]);
+  const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw); for(let k=0;k<14;k++) sparks(P.x+fx*.6,1.1,P.z+fz*.6,fx,fz,1);
+  P.mbreakT=.7; IN.fire=false; mouseDown=false; MS.t=9; MS.cur=[0,0,0,0,0,0]; }
+function updMeleeBreak(dt){ if(!(P.mbreakT>0)) return; P.mbreakT-=dt; if(P.mbreakT<=0){ P.mbreakT=0; equipMelee('fists'); VM.sw=1; } }
 // bleeding cuts, and legless monsters drag themselves
 function updMelee(dt){
-  updBlock(dt); for(const e of LV.enemies){ if(e.dead||!(e.mBleed>0)) continue; e.mBleed-=dt; e.mbT=(e.mbT||0)-dt; if(e.mbT<=0){ e.mbT=.5; hurtEnemy(e,3+2*Math.min(4,e.gash||1),0,0,0,'bleed'); const g=GORE[e.d.gore].b; for(let q=0;q<3;q++) drip(e.x+R(-.15,.15),e.y+R(.7,1.2)*e.scale,e.z+R(-.15,.15),R(-.15,.15),R(-.3,0),R(-.15,.15),g,R(.01,.018),q===0); if(rand()<.4) addDecal(GORE[e.d.gore].decal||'blood',e.x+R(-.3,.3),.015,e.z+R(-.3,.3),0,1,0,R(.2,.4)); } }
+  updBlock(dt); updMeleeBreak(dt); for(const e of LV.enemies){ if(e.dead||!(e.mBleed>0)) continue; e.mBleed-=dt; e.mbT=(e.mbT||0)-dt; if(e.mbT<=0){ e.mbT=.5; hurtEnemy(e,3+2*Math.min(4,e.gash||1),0,0,0,'bleed'); const g=GORE[e.d.gore].b; for(let q=0;q<3;q++) drip(e.x+R(-.15,.15),e.y+R(.7,1.2)*e.scale,e.z+R(-.15,.15),R(-.15,.15),R(-.3,0),R(-.15,.15),g,R(.01,.018),q===0); if(rand()<.4) addDecal(GORE[e.d.gore].decal||'blood',e.x+R(-.3,.3),.015,e.z+R(-.3,.3),0,1,0,R(.2,.4)); } }
   for(const e of LV.enemies){ if(e.legless&&!e.dead) e.downT=Math.max(e.downT,1); } }
 // ---- finding them: lying on the floor, picked up by walking over them; your old one is left behind
 function meleePickup(kind){
@@ -5666,6 +5701,7 @@ Object.assign(SFX,{
 // a faint streak behind the edge on fast swings
 let TRAIL=null;
 function meleeTrail(w,dt){
+  if(w&&w.noTrail){ if(TRAIL) TRAIL.mesh.visible=false; return; }
   if(!TRAIL){ const N=10, g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*2*3),3)); g.setAttribute('a',new THREE.BufferAttribute(new Float32Array(N*2),1));
     const idx=[]; for(let i=0;i<N-1;i++){ const a=i*2; idx.push(a,a+1,a+2,a+1,a+3,a+2); } g.setIndex(idx);
     const m=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,uniforms:{c:{value:new THREE.Color(.75,.72,.65)},k:{value:.3}},
@@ -5867,28 +5903,89 @@ function updPools(dt){ for(let i=POOLS.length-1;i>=0;i--){ const p=POOLS[i]; if(
   const k=1-Math.exp(-p.t/5); p.m.scale.setScalar(.15+(p.max-.15)*k); if(p.e&&p.e.rig&&!p.e.gone&&p.t<2){ p.m.position.x=p.e.x; p.m.position.z=p.e.z; } if(p.t>14) POOLS.splice(i,1); } }
 
 // ---------------- censor blur ----------------
-const _cv=new THREE.Vector3(), _cb=new THREE.Box3();
-function censorRegion(pts){ // pts: world points. returns [cx,cy,rx,ry] in 0..1 screen uv, or null if off screen / behind
-  let x0=9,y0=9,x1=-9,y1=-9,any=false;
-  for(const p of pts){ _cv.copy(p).project(camera); if(_cv.z>1||_cv.z<-1) continue; any=true; x0=Math.min(x0,_cv.x); x1=Math.max(x1,_cv.x); y0=Math.min(y0,_cv.y); y1=Math.max(y1,_cv.y); }
-  if(!any||x1<-1.1||x0>1.1||y1<-1.1||y0>1.1) return null;
-  const cx=(x0+x1)*.25+.5, cy=(y0+y1)*.25+.5, rx=Math.max(.03,(x1-x0)*.25*1.35+.02), ry=Math.max(.03,(y1-y0)*.25*1.35+.02); return [cx,cy,rx,ry]; }
-function corpsePts(e){ const rg=e.rig; if(rg.cPts&&rg.settled) return rg.cPts; const out=[];
-  if(rg.bones&&rg.bones.length){ rg.root.updateMatrixWorld(true); const step=Math.max(1,Math.floor(rg.bones.length/24)); for(let i=0;i<rg.bones.length;i+=step){ const b=rg.bones[i]; if(rg.lostBones&&rg.lostBones.includes(b)) continue; out.push(b.getWorldPosition(new THREE.Vector3())); } }
-  else { _cb.setFromObject(rg.root); if(!_cb.isEmpty()) for(let i=0;i<8;i++) out.push(new THREE.Vector3(i&1?_cb.max.x:_cb.min.x,i&2?_cb.max.y:_cb.min.y,i&4?_cb.max.z:_cb.min.z)); }
-  if(rg.settled) rg.cPts=out; return out; }
+// Each frame the dead bodies in view are drawn into a mask (red), depth-tested against the scene so anything standing in
+// front of them stays sharp; the viewmodel is drawn into the same mask (green) and is never blurred. The post pass blurs
+// only where the mask is red.
+const MASK_VS=`#include <common>
+#include <skinning_pars_vertex>
+varying float vZ;
+void main(){
+#include <skinbase_vertex>
+#include <begin_vertex>
+#include <skinning_vertex>
+#include <project_vertex>
+vZ=-mvPosition.z; }`;
+const MASK_FS=`#include <packing>
+uniform sampler2D tDepth; uniform vec2 uSize; uniform float uK, uNear, uFar; varying float vZ;
+void main(){ float d=texture2D(tDepth,gl_FragCoord.xy/uSize).x; float sz=-perspectiveDepthToViewZ(d,uNear,uFar); if(vZ>sz+.14) discard; gl_FragColor=vec4(uK,0.,0.,1.); }`;
+const MASKMAT=new THREE.MeshBasicMaterial({color:0xffffff,skinning:true,side:THREE.DoubleSide,depthTest:false,depthWrite:false,fog:false,blending:THREE.CustomBlending,blendEquation:THREE.MaxEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor});
+MASKMAT.uniforms={tDepth:{value:null},uSize:{value:new THREE.Vector2(1,1)},uK:{value:1},uNear:{value:.05},uFar:{value:60}};
+MASKMAT.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,MASKMAT.uniforms);
+  sh.vertexShader='varying float vZ;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n vZ=-mvPosition.z;');
+  sh.fragmentShader='#include <packing>\nuniform sampler2D tDepth; uniform vec2 uSize; uniform float uK, uNear, uFar; varying float vZ;\n'+sh.fragmentShader.replace(/void main\(\) \{[\s\S]*$/,'void main(){ float d=texture2D(tDepth,gl_FragCoord.xy/uSize).x; float sz=-perspectiveDepthToViewZ(d,uNear,uFar); if(vZ>sz+.14) discard; gl_FragColor=vec4(uK,0.,0.,1.); }'); };
+MASKMAT.customProgramCacheKey=()=>'censormask';
+// loose parts have no skeleton: they get their own copy, so the skinned version is never compiled without bones
+const MASKMAT_S=MASKMAT.clone(); MASKMAT_S.skinning=false; MASKMAT_S.uniforms=MASKMAT.uniforms; MASKMAT_S.onBeforeCompile=MASKMAT.onBeforeCompile; MASKMAT_S.customProgramCacheKey=()=>'censormask_s';
+const VMMASK=new THREE.MeshBasicMaterial({color:0x00ff00,depthTest:false,depthWrite:false});
 function updCensor(){
-  CENSOR.n=0; CENSOR.on=false; if(!SETTINGS.censor||state!=='play'||!LV) return;
+  CENSOR.list.length=0; CENSOR.on=false; if(!SETTINGS.censor||state!=='play'||!LV) return;
   const cand=[];
   for(const e of LV.enemies){ if(!e.dead||e.gone||!e.rig||!e.rig.root||!e.rig.root.parent||!e.rig.root.visible) continue; const dt=e.rig.deadT||0; if(dt<.35) continue;
-    const d=Math.hypot(e.x-P.x,e.z-P.z); if(d>16||!losTo(P.x,P.z,e.x,e.z)) continue; cand.push([d,e,clamp((dt-.35)/.45,0,1)]); }
-  cand.sort((a,b)=>a[0]-b[0]);
-  for(const [d,e,k] of cand){ if(CENSOR.n>=8) break; const r=censorRegion(corpsePts(e)); if(!r) continue; CENSOR.regs[CENSOR.n].set(r[0],r[1],r[2],r[3]); CENSOR.k[CENSOR.n]=k; CENSOR.n++; }
-  // loose parts: heads and limbs that came off
-  if(typeof RCH!=='undefined') for(const c of RCH){ if(CENSOR.n>=8) break; const o=c.o; if(!o.parent||!o.visible) continue; o.getWorldPosition(_cv); const d=Math.hypot(_cv.x-P.x,_cv.z-P.z); if(d>9||c.t<.25||!losTo(P.x,P.z,_cv.x,_cv.z)) continue;
-    const r=censorRegion([_cv.clone().add(new THREE.Vector3(.22,.22,.22)),_cv.clone().add(new THREE.Vector3(-.22,-.12,-.22))]); if(!r) continue; CENSOR.regs[CENSOR.n].set(r[0],r[1],r[2],r[3]); CENSOR.k[CENSOR.n]=clamp((c.t-.25)/.4,0,1); CENSOR.n++; }
-  for(let i=CENSOR.n;i<8;i++) CENSOR.k[i]=0; CENSOR.on=CENSOR.n>0;
+    const d=Math.hypot(e.x-P.x,e.z-P.z); if(d>16) continue; cand.push([d,e.rig.root,clamp((dt-.35)/.45,0,1)]); }
+  if(typeof RCH!=='undefined') for(const c of RCH){ const o=c.o; if(!o.parent||!o.visible||c.t<.25) continue; o.getWorldPosition(_cv); const d=Math.hypot(_cv.x-P.x,_cv.z-P.z); if(d>10) continue; cand.push([d,o,clamp((c.t-.25)/.4,0,1)]); }
+  cand.sort((a,b)=>a[0]-b[0]); for(const c of cand.slice(0,10)) CENSOR.list.push([c[1],c[2]]); CENSOR.on=CENSOR.list.length>0;
 }
+const _sw=[], _cv=new THREE.Vector3();
+function renderCensorMask(srcRT,withVM){
+  if(!CENSOR.rt||CENSOR.rt.width!==Math.max(2,srcRT.width>>1)||CENSOR.rt.height!==Math.max(2,srcRT.height>>1)){ if(CENSOR.rt) CENSOR.rt.dispose(); CENSOR.rt=new THREE.WebGLRenderTarget(Math.max(2,srcRT.width>>1),Math.max(2,srcRT.height>>1),{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false}); }
+  const U=MASKMAT.uniforms; U.tDepth.value=srcRT.depthTexture; U.uSize.value.set(CENSOR.rt.width,CENSOR.rt.height); U.uNear.value=camera.near; U.uFar.value=camera.far;
+  renderer.setRenderTarget(CENSOR.rt); renderer.setClearColor(0x000000,1); renderer.clear(true,false,false);
+  for(const [root,k] of CENSOR.list){ _sw.length=0;
+    root.traverse(o=>{ if(o.isMesh){ const m=o.material, ghost=!m||Array.isArray(m)?false:(m.visible===false||m.colorWrite===false||(m.transparent&&m.opacity<.15)||m.blending===THREE.AdditiveBlending||o.userData.glow||!o.isSkinnedMesh&&o.parent&&o.parent.userData&&o.parent.userData.weak); if(ghost&&o.visible){ _sw.push([o,'v']); o.visible=false; } else { _sw.push([o,'m',m]); o.material=o.isSkinnedMesh?MASKMAT:MASKMAT_S; } } else if((o.isSprite||o.isPoints||o.isLine)&&o.visible){ _sw.push([o,'v']); o.visible=false; } });
+    U.uK.value=k; renderer.render(root,camera);
+    for(const [o,t,m] of _sw){ if(t==='m') o.material=m; else o.visible=true; } }
+  if(withVM){ vmScene.overrideMaterial=VMMASK; renderer.render(vmScene,vmCam); vmScene.overrideMaterial=null; }
+}
+
+// ---------------- wear: every weapon is used up. Guns jam more as they wear and have to be cleared; melee weapons blunt and splinter;
+// at zero either one breaks and is gone. Bare hands are what's left, and they don't break.
+const GUN_LIFE={pistol:240,revolver:200,shotgun:110,sawed:70,nailer:520,smg:600,arc:420,rifle:380,bolt:90,incin:130,flare:14,gustaf:10};
+function wearInit(){ if(!P.gdur||P.gdur.length!==NW) P.gdur=new Array(NW).fill(1); if(!P.jam||P.jam.length!==NW) P.jam=new Array(NW).fill(false); }
+function wears(i){ const w=WEAPONS[i]; return !!(w&&!w.melee&&!w.grenade&&GUN_LIFE[w.id]); }
+function gunCond(i){ return wears(i)?clamp(P.gdur[i],0,1):1; }
+// called after a round leaves the barrel
+function gunWear(i){
+  if(!wears(i)) return; const w=WEAPONS[i], d0=P.gdur[i]; P.gdur[i]=Math.max(0,d0-1/GUN_LIFE[w.id]*R(.8,1.2));
+  if(d0>.25&&P.gdur[i]<=.25) msg(`THE ${w.name} IS WORN OUT`,'#ffcf8a');
+  if(P.gdur[i]<=0){ gunBreak(i); return; }
+  if(w.proj) return;
+  // the worse it is, the more often a round fails to feed; full-auto rolls per round so its odds are scaled down
+  const c=P.gdur[i], p=(c<.85?.004:0)+(c<.6?.24*Math.pow((.6-c)/.6,2):0), per=p*clamp(w.rate/.3,.22,1);
+  if(rand()<per){ P.jam[i]=true; IN.fire=false; mouseDown=false; P.jamFlash=1; SFX.click(); setTimeout(()=>SFX.click&&SFX.click(),70); msg(isTouch?'JAMMED — TAP RELOAD':'JAMMED — [R] CLEAR IT','#ff8a6a'); buzz([20,30,20]); }
+}
+// clearing it: tip the gun, rack or slap it, a dud round flicks out
+function startUnjam(){ const i=P.weapon; if(!P.jam[i]||P.unjamT>0) return false; const w=WEAPONS[i]; P.unjamW=i; P.unjamMax=P.unjamT=/shotgun|sawed/.test(w.id)?.85:/bolt|incin|flare|gustaf/.test(w.id)?1.15:1; P.unjamDone=false; SFX.click(); return true; }
+function updUnjam(dt){
+  if(P.unjamT>0){ if(P.weapon!==P.unjamW||!P.alive){ P.unjamT=0; return; } P.unjamT-=dt; const p=1-P.unjamT/P.unjamMax;
+    if(!P.unjamDone&&p>=.55){ P.unjamDone=true; P.jam[P.unjamW]=false; SFX.reload&&SFX.reload('rack'); VM.pumpRack=1; ejectCasing&&ejectCasing(P.unjamW,0); P.shake=Math.max(P.shake,.6); buzz(15); }
+    if(P.unjamT<=0){ P.unjamT=0; P.fireCd=Math.max(P.fireCd,.1); } }
+  if(P.gbreak){ const B=P.gbreak; B.t-=dt; if(B.t<=0){ const i=B.i, w=WEAPONS[i]; P.gbreak=null; P.owned[i]=false; P.jam[i]=false; if(H(i).mag&&w.ammo){ P.ammo[w.ammo]=Math.min(AMMO_MAX[w.ammo]||999,P.ammo[w.ammo]+(P.mag[i]||0)); P.mag[i]=0; } P.gdur[i]=1;
+      msg(`THE ${w.name} IS FINISHED`,'#ff8a6a'); if(P.weapon===i){ P.weapon=0; autoSwitch(); } buildWbar(); } }
+  P.jamFlash=Math.max(0,(P.jamFlash||0)-dt*2);
+}
+function gunBreak(i){ if(P.gbreak) return; P.gbreak={i,t:.75}; IN.fire=false; mouseDown=false; cancelReload(); P.unjamT=0; SFX.crate&&SFX.crate(P); P.shake=Math.max(P.shake,1.4); buzz([40,30,60]);
+  const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw); for(let k=0;k<12;k++) sparks(P.x+fx*.5,1.25,P.z+fz*.5,fx,fz,1); }
+// viewmodel poses for both: added on top of the gun's held pose
+function animWear(w,dt){
+  if(!w||!w.g) return; const g=w.g;
+  if(P.unjamT>0&&P.weapon===P.unjamW){ const p=1-P.unjamT/P.unjamMax, tip=Math.sin(Math.min(1,p/.35)*Math.PI/2)*(p<.8?1:1-(p-.8)/.2), jolt=Math.max(0,1-Math.abs(p-.55)/.08);
+    g.rotation.z+=.95*tip; g.rotation.y+=-.35*tip; g.position.x+=-.06*tip; g.position.y+=.03*tip-.025*jolt; g.position.z+=.05*jolt;
+    if(w.parts&&w.parts.slide) w.parts.slide.position.z+=.06*Math.max(0,1-Math.abs(p-.5)/.12); }
+  if(P.jam&&P.jam[P.weapon]&&!(P.unjamT>0)) g.rotation.z+=.05*Math.sin(LV?LV.t*3:0)*P.jamFlash;
+  if(P.gbreak&&P.weapon===P.gbreak.i){ const p=1-P.gbreak.t/.75, sh=(1-p)*.02; g.position.x+=R(-sh,sh); g.position.y+=R(-sh,sh)-.9*p*p; g.rotation.z+=1.2*p*p; g.rotation.x+=.6*p*p; }
+}
+// melee: worn edges do less and cut less cleanly, so it takes more hits as it nears the end
+function meleeWearK(){ const m=MELEE[P.melee]; if(!m||!m.dur) return 1; const f=P.meleeDur/m.dur; return f<.35?.5+.5*f/.35:1; }
 
 // ---------------- campaign ----------------------------------------------
 const CHAPTERS=[
@@ -6110,9 +6207,9 @@ function updateHUD(dt){
   const hp=Math.ceil(P.hp); setT('hpV',String(hp)); $('hpV').classList.toggle('low',hp<=P.maxHp*.3);
   setT('arV',String(Math.ceil(P.armor))); $('arS').style.display=P.armor>0?'':'none';
   const w=WEAPONS[P.weapon], hm=H(P.weapon).mag&&w.ammo;
-  setT('ammoV',w.ammo?String(hm?P.mag[P.weapon]:P.ammo[w.ammo]):(w.melee&&P.melee!=='pipe'&&MELEE[P.melee].dur?Math.ceil(P.meleeDur/MELEE[P.melee].dur*100)+'%':'∞'));
+  setT('ammoV',w.ammo?String(hm?P.mag[P.weapon]:P.ammo[w.ammo]):(w.melee&&MELEE[P.melee]&&MELEE[P.melee].dur?Math.ceil(P.meleeDur/MELEE[P.melee].dur*100)+'%':'∞'));
   { const hh=H(P.weapon), sp=hh.box?sparesOf(P.weapon):null; setT('ammoR',!hm?'':sp?' '+sp.map(c=>c>=hh.mag*.6?'▮':c>0?'▯':'·').join('')+(P.ammo[w.ammo]?' +'+P.ammo[w.ammo]:''):' +'+P.ammo[w.ammo]); } $('ammoV').classList.toggle('empty',!!w.ammo&&(hm?P.mag[P.weapon]:P.ammo[w.ammo])<(w.cost||1));
-  const wn=P.healT>0?'APPLYING MEDKIT…':P.plugged?`CHARGING ${Math.round(P.battery)}%`:P.reloadT>0?(P.rlMode==='thumb'?'LOADING ROUNDS…':P.rlMode==='shell'?'LOADING SHELLS…':'RELOADING…'):P.packing?'LOADING MAGS…':w.name; if(HUDC.wnLast!==wn){ HUDC.wnLast=wn; P.wnT=2.2; } P.wnT=Math.max(0,(P.wnT||0)-dt); setT('wname',wn); $('wname').classList.toggle('rl',P.reloadT>0); $('wname').style.opacity=(P.reloadT>0||P.packing||P.healT>0||P.charging||P.wnT>0)?1:0;
+  const wn=P.healT>0?'APPLYING MEDKIT…':P.plugged?`CHARGING ${Math.round(P.battery)}%`:P.reloadT>0?(P.rlMode==='thumb'?'LOADING ROUNDS…':P.rlMode==='shell'?'LOADING SHELLS…':'RELOADING…'):P.packing?'LOADING MAGS…':P.unjamT>0?'CLEARING JAM…':P.gbreak?'IT BREAKS':(P.jam&&P.jam[P.weapon]&&!w.melee)?(isTouch?'JAMMED — TAP RELOAD':'JAMMED — [R]'):w.name+(wears(P.weapon)&&gunCond(P.weapon)<.995?` · ${Math.ceil(gunCond(P.weapon)*100)}%`:''); if(HUDC.wnLast!==wn){ HUDC.wnLast=wn; P.wnT=2.2; } P.wnT=Math.max(0,(P.wnT||0)-dt); setT('wname',wn); $('wname').classList.toggle('rl',P.reloadT>0); $('wname').style.opacity=(P.reloadT>0||P.packing||P.healT>0||P.charging||P.wnT>0)?1:0;
   $('batt').style.opacity=1; $('batt').classList.toggle('off',!P.light||!!P.plugged);
   { const bk=$('bKick'); if(bk){ bk.classList.toggle('hot',!!P.kickHint&&P.kickCd<=0); bk.style.visibility=$('bNext').style.visibility=$('bDash').style.visibility=$('bBlock').style.visibility=pickOpen?'hidden':''; const bb=$('bBlock'); bb.classList.toggle('on',P.block>.5); bb.classList.toggle('off',!WEAPONS[P.weapon].melee); $('bDash').classList.toggle('lock',MOT.stamina<20||P.dashCd>0); } }
   setT('medV',String(P.medkits||0)); { const nb=(P.bleed||[]).length; $('bleedS').style.display=nb?'':'none'; if(nb) setT('bleedV','×'+nb); } $('medS').classList.toggle('busy',P.healT>0); $('medS').style.opacity=(P.medkits||0)>0?1:.35;
@@ -6210,7 +6307,7 @@ $('bl').addEventListener('pointerdown',e=>{ if(state!=='play') return; e.stopPro
 $('br').addEventListener('pointerdown',e=>{ if(!isTouch||state!=='play') return; e.stopPropagation(); e.preventDefault(); openPicker(); });
 let pickOpen=false;
 const WH={ids:[],sel:-1,drag:null};
-function whSel(k){ WH.sel=k; $('whSvg').querySelectorAll('.seg').forEach(g=>g.classList.toggle('on',+g.dataset.k===k)); const wi=WH.ids[k], w=WEAPONS[wi]; $('whMid').innerHTML=w?`${w.name}<small>${w.ammo?totalAmmo(wi)+' rounds':w.melee&&P.melee!=='pipe'&&MELEE[P.melee]?Math.ceil(100*P.meleeDur/MELEE[P.melee].dur)+'%':'∞'}</small>`:''; }
+function whSel(k){ WH.sel=k; $('whSvg').querySelectorAll('.seg').forEach(g=>g.classList.toggle('on',+g.dataset.k===k)); const wi=WH.ids[k], w=WEAPONS[wi]; $('whMid').innerHTML=w?`${w.name}<small>${w.ammo?totalAmmo(wi)+' rounds'+(wears(wi)?' · '+Math.ceil(gunCond(wi)*100)+'%':''):w.melee&&MELEE[P.melee]&&MELEE[P.melee].dur?Math.ceil(100*P.meleeDur/MELEE[P.melee].dur)+'%':w.melee?'∞':wears(wi)?Math.ceil(gunCond(wi)*100)+'% COND':'∞'}</small>`:''; }
 function whPick(){ const wi=WH.ids[WH.sel]; if(wi!=null) switchWeapon(wi); closePicker(); }
 // a small picture of each weapon, rendered once from its own model
 const WICON={};
@@ -6287,7 +6384,7 @@ function showScreen(id){ if(id!=='sDead') stopReplay(); for(const s of SCREENS) 
 function exitPointer(){ if(document.pointerLockElement){ IN.ignoreUnlock=true; try{ document.exitPointerLock(); }catch(e){} } }
 function startLevel(L){
   CUR_ANOM=RUN.anom||'quiet'; RUN.L=L; P.alive=true; P.deadT=0;
-  buildLevel(L,false); buildDoors(); decorateRooms(); placeLockers(); scatterDecor(); placeLurkers(); placeMelee(); if(!P.melee) equipMelee('pipe'); recLevel(); stalkerSetup(L); P.bleed=[]; spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
+  buildLevel(L,false); buildDoors(); decorateRooms(); placeLockers(); scatterDecor(); placeLurkers(); placeMelee(); if(!P.melee) equipMelee('pipe'); recLevel(); settleClutter(); stalkerSetup(L); P.bleed=[]; spawnStations(); P.plugged=null; P.light=true; setupGoal(L); clampPack(); shadowLevel(); P.doorWork=null; $('noteBox').classList.add('hidden'); P.healT=0; PS.clear(); MIST.clear(); FIRE.clear(); clearChunks(); clearWounds(); clearRigChunks(); beams=[]; ringFx.visible=false;
   state='play'; showScreen(null); $('hud').classList.remove('hidden'); if(isTouch) $('touch').classList.remove('hidden');
   mapOn=false; mapC.classList.add('hidden'); $('tape').classList.add('hidden');
   $('lvl').textContent=`${levelName(L)} · ${LV.th.name}`;
@@ -6369,7 +6466,7 @@ let lastT=performance.now(), revealT=0;
 function updatePlay(dt){
   LV.t+=dt; P.levelTime+=dt; P.totalTime+=dt;
   const mf=updateMotion(dt);
-  P.dashCd-=dt; P.iframes-=dt; P.fireCd-=dt;
+  P.dashCd-=dt; P.iframes-=dt; P.fireCd-=dt; updUnjam(dt);
   updReload(dt); updPacking(dt); updKick(dt);
   P.onTarget=autoTarget(); IN.autoFire=SETTINGS.autoFire&&P.onTarget&&!pickOpen;
   { const wantShoot=IN.fire||mouseDown||IN.autoFire, melee=WEAPONS[P.weapon].melee;
