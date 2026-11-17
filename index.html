@@ -2465,6 +2465,7 @@ function flameShot(w,by,bp){
   if(rand()<.06){ const d=Math.min(wt-.2,R(2,w.range)); addDecal('scorch',P.x-Math.sin(by)*d,.017,P.z-Math.cos(by)*d,0,1,0,R(.5,.9)); }
 }
 function fire(){
+  if(P.braceT>0) return;
   const w=WEAPONS[P.weapon];
   if(P.fireCd>0||VM.sw>.35||!P.alive||P.healT>0||P.plugged) return;
   const hd=H(P.weapon), useMag=!!(hd.mag&&w.ammo);
@@ -2805,7 +2806,7 @@ function updateMotion(dt){
   let ml=Math.hypot(mx,mz); if(ml>1){ mx/=ml; mz/=ml; ml=1; }
   // walking off breaks off a medkit or pulls the light out of the charger
   if(P.alive&&ml>.3){ if(P.healT>0&&P.healMax-P.healT>.4){ P.healT=0; P.healPh=0; msg('STOPPED — MEDKIT KEPT','#cfc6a8'); } if(P.plugged&&(P.plugT||0)>.5) unplug('manual'); }
-  if(!P.alive||P.healT>0||P.doorWork||P.plugged){ mx=mz=0; ml=0; }
+  if(!P.alive||P.healT>0||P.doorWork||P.plugged||P.braceT>0){ mx=mz=0; ml=0; }
   // aim down sights: on request, and automatically while shooting
   P.adsHoldT=Math.max(0,(P.adsHoldT||0)-dt);
   const adsWant=(IN.ads||P.adsHoldT>0)&&P.alive&&!WEAPONS[P.weapon].melee&&P.sprintPose<.3&&P.kickT<=0&&P.reloadT<=0;
@@ -2951,7 +2952,7 @@ function buildKickVM(){
 }
 function kickExt(){ if(P.kickT<=0) return 0; const p=1-P.kickT/KICK.dur; return p<.28?smooth(0,.28,p):1-smooth(.38,1,p); }
 function startKick(){ P.kickAuto=false;
-  if(P.plugged||P.kickT>0||P.kickCd>0||!P.alive||state!=='play'||P.healT>0) return false;
+  if(P.braceT>0||P.plugged||P.kickT>0||P.kickCd>0||!P.alive||state!=='play'||P.healT>0) return false;
   P.kickT=KICK.dur; P.kickCd=KICK.cd; P.kickHit=false;
   SFX.kickSwing(); MOT.spv+=.55; MOT.syv-=.15; buzz(15);
   return true;
@@ -4187,6 +4188,21 @@ function stalkerBlink(e,hideFor){
   e.kvx=e.kvz=0; e.hunt=false; e.seenT=9; e.atkT=0; e.mode=''; e.staggerT=0; e.slowT=0; e.smellT=R(2,4); e.lkx=P.x+R(-5,5); e.lkz=P.z+R(-5,5);
   e.hidden=true; if(e.rig) e.rig.root.visible=false; e.retreatT=hideFor; e.fleeRun=0;
 }
+function stalkerScream(e){
+  e.screamT=2.4; e.screamCd=28; e.hunt=true; e.atkT=0; e.mode=''; P.braceT=2.4; IN.fire=false; cancelReload&&cancelReload(); if(P.healT>0){ P.healT=0; P.healPh=0; }
+  if(AU.on){ voice(e,150,70,2.3,[[520,3,1],[1500,5,.7],[2900,8,.35]],2.2,'sawtooth',[26,16]); voice(e,61,38,2.3,[[240,4,1],[700,5,.5]],1.6,'sawtooth',[5,8]); } recPlay('boom_drop',{vol:.7,rate:.8}); buzz([60,40,200]);
+  LV.stutterT=Math.max(LV.stutterT||0,.5); hearNoise&&hearNoise(e.x,e.z,6);
+}
+// you flinch: arms up, eyes dragged onto it, feet nailed down
+function updBrace(dt){
+  const e=STALK.e, on=P.braceT>0&&P.alive;
+  if(on){ P.braceT-=dt; VM.sw=1; IN.fire=false; P.shake=Math.max(P.shake,1.6);
+    if(e&&!e.hidden){ const d=Math.hypot(e.x-P.x,e.z-P.z), k=1-Math.exp(-dt*7); let dy=Math.atan2(-(e.x-P.x),-(e.z-P.z))-P.yaw; dy=Math.atan2(Math.sin(dy),Math.cos(dy)); P.yaw+=dy*k;
+      P.pitch+=(clamp(Math.atan2(e.y+2.5*e.scale-camPos.y,d),-.5,.6)-P.pitch)*k; } }
+  if(!ANIM.brace){ if(!on) return; const g=new THREE.Group(); g.scale.setScalar(.74); vmScene.add(g); const l=new THREE.Group(), r=new THREE.Group(); g.add(l,r); VM.lArm(l,[0,0,0]); VM.rArm(r,[0,0,0]); l.position.set(-.13,-.1,-.5); r.position.set(.15,-.14,-.46); l.rotation.z=-.35; r.rotation.z=.3; ANIM.brace={g,l,r,k:0}; }
+  const B=ANIM.brace; B.k=damp(B.k,on?1:0,on?14:7,dt); B.g.visible=B.k>.01; if(!B.g.visible) return;
+  const q=on?Math.sin(LV.t*41)*.006:0; B.g.position.set(q,-.6*(1-B.k)+q,0); B.g.rotation.x=.25*(1-B.k);
+}
 function stalkerAI(e,dt,dist,nx,nz,spd){
   if(e.blinkT>0) return [0,0];
   e.weakMoveT=(e.weakMoveT==null?R(6,9):e.weakMoveT)-dt; if(e.weakMoveT<=0){ e.weakMoveT=R(6,10); e.weakAt=((e.weakAt||0)+RI(1,WEAK_SPOTS.length-1))%WEAK_SPOTS.length; }
@@ -4203,6 +4219,10 @@ function stalkerAI(e,dt,dist,nx,nz,spd){
   // a hit to the sac doubles it over, then it limps for a few seconds
   if(e.staggerT>0){ e.staggerT-=dt; e.painT=Math.max(e.painT,.1); return [0,0]; }
   let sp=spd*e.mult; if(e.slowT>0) sp*=(e.slowK||.8); if(e.litT>.4) sp*=.4;
+  e.screamCd=(e.screamCd||0)-dt;
+  // the moment it finds you it stops and screams. Nothing moves until it's done
+  if(e.screamT>0){ e.screamT-=dt; e.hunt=true; e.lkx=P.x; e.lkz=P.z; e.seenT=0; e.cd=Math.max(e.cd,.5); return [0,0]; }
+  if(seen&&!e.hunt&&e.screamCd<=0&&dist>2.6&&dist<17&&P.alive&&!(e.staggerT>0)){ stalkerScream(e); return [0,0]; }
   if(seen){ e.hunt=true; e.lkx=P.x; e.lkz=P.z; e.seenT=0; sp*=2.15; }
   else { e.seenT=(e.seenT||0)+dt; if(e.seenT>2) e.hunt=false;
     // it always roughly knows where you are
@@ -4213,11 +4233,13 @@ function stalkerAI(e,dt,dist,nx,nz,spd){
 }
 function updStalker(dt){
   if(!LV||state!=='play') return;
+  updBrace(dt);
   if(!STALK.e&&LV.stalkT>0&&!LV.boss){ LV.stalkT-=dt; if(LV.stalkT<20&&!STALK.warned){ STALK.warned=true; LV.stutterT=.6; AMBEV.groan(); } if(LV.stalkT<=0) spawnStalker(); }
   const e=STALK.e; if(!e||e.dead) return;
   if(e.blinkT>0&&!e.hidden){ e.blinkT-=dt; if(e.blinkT<=0){ stalkerBlink(e,e.blinkLong||R(2.5,4)); e.blinkLong=0; } }
   if(e.hidden) return;
-  const d=Math.hypot(e.x-P.x,e.z-P.z);
+  let d=Math.hypot(e.x-P.x,e.z-P.z);
+  if(d<1.35&&d>.01){ const nx2=e.x+(e.x-P.x)/d*(1.35-d), nz2=e.z+(e.z-P.z)/d*(1.35-d); if(!solid(cellOf(nx2),cellOf(nz2))){ e.x=nx2; e.z=nz2; d=1.35; } }
   // your heart knows before you do
   if(d<16&&P.alive){ STALK.heartT-=dt; if(STALK.heartT<=0){ STALK.heartT=.35+d/22; SFX.heart(); } }
   if(d<14) AU.tgtInt=Math.max(AU.tgtInt,1-d/14);
@@ -4580,7 +4602,7 @@ function buildElkRig(e){
   const model=THREE.SkeletonUtils.clone(ASSET.elk.scene), root=new THREE.Group(), body=new THREE.Group(); root.add(body); body.add(model);
   const sc=2.85*(e.scale||1); body.scale.setScalar(sc);
   const mats=[], bones=[], boneBy={};
-  model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; padBounds(o); const m=o.material; const p=new THREE.MeshPhongMaterial({map:m.map,emissiveMap:m.map,emissive:0,skinning:true,shininess:10,specular:0x111111,fog:true}); mats.push(p); o.material=p; }
+  model.traverse(o=>{ if(o.isMesh){ o.castShadow=true; padBounds(o); o.frustumCulled=false; const m=o.material; const p=new THREE.MeshPhongMaterial({map:m.map,emissiveMap:m.map,emissive:0,skinning:true,shininess:10,specular:0x111111,fog:true,side:THREE.DoubleSide}); mats.push(p); o.material=p; }
     if(o.isBone){ bones.push(o); boneBy[o.name]=o; } });
   const B=n=>boneBy['CC_Base_'+n], rest={};
   const J={sp1:B('Spine01'),sp2:B('Spine02'),waist:B('Waist'),head:B('Head'),lth:B('L_Thigh'),rth:B('R_Thigh'),lca:B('L_Calf'),rca:B('R_Calf'),lua:B('L_Upperarm'),rua:B('R_Upperarm'),lfa:B('L_Forearm'),rfa:B('R_Forearm'),jaw:B('JawRoot')};
@@ -4601,11 +4623,13 @@ function elkSync(e,dt){
   if(e.atkT>0&&e.mode==='melee'){ const tot=e.atkTot||(e.atkTot=e.atkT), p=1-e.atkT/tot; const up=p<.55?p/.55:1-(p-.55)/.45*1.4; aL=aR=.3+2.2*clamp(up,-.3,1); fa=.2; hunch+=p<.55?-.15:.5; } else e.atkTot=0;
   if(e.staggerT>0||e.painT>.3){ hunch=1.0; aL=aR=.9; fa=1.2; head=.4; }
   if(e.litT>.4){ aL=1.4; fa=1.6; head=.3; }   // shields its face from the light
+  let jaw=e.hunt?.25+Math.sin(t*9)*.08:.05, spread=0;
+  if(e.screamT>0){ const k=clamp((2.4-e.screamT)/.25,0,1)*clamp(e.screamT/.3,0,1), q=Math.sin(t*38)*.05; hunch=.32-.5*k; aL=aR=.15-.5*k; fa=.35+.5*k; head=-.25-.55*k+q; look=0; jaw=.05+.85*k+q; spread=.9*k; }
   set('sp1',hunch*.55-R_.spine*.5,0,Math.sin(rg.ph*.5)*.05*mv); set('sp2',hunch*.45,0,0);
-  set('head',head-R_.head,look,0); set('jaw',e.hunt?.25+Math.sin(t*9)*.08:.05,0,0);
+  set('head',head-R_.head,look,0); set('jaw',jaw,0,0);
   set('lth',s*.55*mv,0,0); set('rth',-s*.55*mv,0,0);
   set('lca',-(Math.max(0,Math.sin(rg.ph-1.3))*.95*mv+.12),0,0); set('rca',-(Math.max(0,Math.sin(rg.ph+Math.PI-1.3))*.95*mv+.12),0,0);
-  set('lua',aL,0,0); set('rua',aR,0,0); set('lfa',fa,0,0); set('rfa',fa,0,0);
+  set('lua',aL,0,spread); set('rua',aR,0,-spread); set('lfa',fa,0,0); set('rfa',fa,0,0);
   rg.body.position.y=-Math.abs(c)*.04*mv;
   // weak spot rides on its chest
   { const key=WEAK_SPOTS[e.weakAt||0], B=J[key]||J.sp2; if(B){ rg.root.updateMatrixWorld(true); const wp=rg.root.worldToLocal(B.getWorldPosition(new THREE.Vector3())); wp.z+=key==='head'?.2:key==='sp2'||key==='sp1'?.24:.16; wp.y+=key==='sp2'?.05:key==='lth'||key==='rth'?-.18:key==='lua'||key==='rua'?-.1:0; if(!rg.weakInit){ rg.weakInit=true; rg.weak.position.copy(wp); } else rg.weak.position.lerp(wp,1-Math.exp(-dt*5)); } }
@@ -5994,7 +6018,7 @@ function startLevel(L){
   buildWbar(); AU.humTgt=.05; SFX.sting(); flashPower=1;
   if(bossFor(L)) setTimeout(()=>msg('SOMETHING LARGE IS GUARDING THE KEYCARD','#ff6b6b'),2200);
   if(L>META.best.level){ META.best.level=L; saveMeta(); }
-  lastT=performance.now(); timeScale=1; slowT=0; hitStop=0; cancelReload(); P.rcl=0; camReset(); resetSprings(); DREAD.k=0; P.dreadSlow=1; P.tlT=7; HUDC.objLast=null;
+  lastT=performance.now(); timeScale=1; slowT=0; hitStop=0; cancelReload(); P.rcl=0; camReset(); resetSprings(); DREAD.k=0; P.braceT=0; P.dreadSlow=1; P.tlT=7; HUDC.objLast=null;
   const fd=$('fx-fade'); fd.style.transition='none'; fd.style.opacity=1; requestAnimationFrame(()=>{ fd.style.transition='opacity 1.6s ease-out'; fd.style.opacity=0; });
   if(isTouch&&!META.tut&&L===RUN.startCh*3) showTut();
   if(L===RUN.startCh*3) showKeysAtStart();
