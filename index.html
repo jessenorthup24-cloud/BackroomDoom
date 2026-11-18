@@ -352,7 +352,7 @@ body.touch #bDash,body.touch #bBlock{display:block!important;z-index:7}
     <div class="stat" id="medS"><span class="ic">⊞</span><span class="v" id="medV">1</span></div>
     <div class="stat" id="arS"><span class="ic">⛨</span><span class="v" id="arV">0</span></div>
   </div>
-  <div id="br"><div><span id="ammoV">60</span><span id="ammoR"></span></div><div id="wname">TT-33 PISTOL</div><div id="ammoAll"></div></div>
+  <div id="br"><div><span id="ammoV">60</span><span id="ammoR"></span></div><div id="wname">MAKAROV PM</div><div id="ammoAll"></div></div>
   <div id="wbar"></div>
   <div id="keys" class="hidden"></div><div id="kprompt" class="hidden"></div>
   <div id="ctxRow"><button id="ctxB" class="ctx hidden">CLOSE DOOR</button><button id="ctxB2" class="ctx hidden">BARRICADE</button></div>
@@ -395,6 +395,7 @@ body.touch #bDash,body.touch #bBlock{display:block!important;z-index:7}
   <div class="btns">
     <button class="btn main" id="btnResume">RESUME</button>
     <button class="btn" id="btnSet2">SETTINGS</button>
+    <button class="btn" id="btnSaveQuit">SAVE &amp; QUIT</button>
     <button class="btn" id="btnQuit">ABANDON RUN</button>
   </div>
 </div>
@@ -1781,7 +1782,7 @@ const perk=id=>META.perks[id]||0;
 
 const WEAPONS=[
   {id:'pipe',   name:'LEAD PIPE',   short:'PIPE', ammo:null,     dmg:55, rate:.5,  melee:true, shake:.8},
-  {id:'pistol', name:'TT-33 PISTOL',short:'TT',  ammo:'bullets',dmg:34, rate:.28, pellets:1, spread:.012,shake:.6, kick:.5, flash:.17, light:2.2},
+  {id:'pistol', name:'MAKAROV PM',short:'PM',  ammo:'bullets',dmg:34, rate:.28, pellets:1, spread:.012,shake:.6, kick:.5, flash:.17, light:2.2},
   {id:'shotgun',name:'SPAS-12',     short:'SPAS', ammo:'shells', dmg:17, rate:.8,  pellets:8, spread:.085,shake:2.4,kick:1, knock:4, flash:.28, light:3.2},
   {id:'sawed',  name:'KS-23',       short:'KS23', ammo:'shells', dmg:28, rate:1.15,pellets:9, spread:.11, shake:4.2, kick:1.6, knock:9, flash:.4, light:4},
   {id:'nailer', name:'VZ.61 SKORPION',short:'VZ61',ammo:'bullets',dmg:16, rate:.06, pellets:1, spread:.035,shake:.35,kick:.25, flash:.13, light:1.8, alert:20, snd:'smg'},
@@ -2469,6 +2470,7 @@ function hitscan(dir,dmg,knock,w,ox,oy,oz,noRic){
   for(const e of LV.enemies){ if(e.dead||e.hidden) continue; const t=rayCyl(ox,oz,dx,dz,e.x,e.z,e.d.hr*e.scale); if(t<0||t>=bt) continue; const y=oy+dy*t; if(y<e.y+e.d.hy0||y>e.y+e.d.hy1*e.scale) continue; best=e; bt=t; }
   for(const p of LV.props){ if(!p.alive) continue; const t=rayCyl(ox,oz,dx,dz,p.x,p.z,p.hr); if(t<0||t>=bt) continue; const y=oy+dy*t; if(y>p.y1) continue; bp=p; best=null; bt=t; }
   const hx=ox+dx*bt, hy=oy+dy*bt, hzp=oz+dz*bt, hz=W_.hz;
+  if(!noRic&&ox===camPos.x){ const pel=w.pellets>1; if(!pel||rand()<.45){ muzzleWorld(_v); tracer(_v.x,_v.y,_v.z,hx,hy,hzp,!pel&&rand()<.35); } }
   if(bp){ hitProp(bp,dmg); sparks(hx,hy,hzp,-dx,-dz,4,[.8,.6,.35]); return; }
   if(best){ const head=isHead(best,hx,hy,hzp), gore=GORE[best.d.gore];
     blood(hx,hy,hzp,head?12:7,dx*.8,dz*.8,2,gore.b); mist(hx,hy,hzp,head?8:3,gore.b); SFX.fleshHit(best);
@@ -4396,10 +4398,10 @@ const ASSET={guns:{},mon:{},elk:null,ready:false};
 // weapon slot id -> gun model file
 const GUN_EXTRA=['gren2'];
 const AEXT=window.NOCLIP_AEXT||'.glb';
-const GUN_FILES={pistol:'tt',shotgun:'spas',sawed:'ks23',nailer:'vz61',bolt:'svd',arc:'m16',incin:'m21',flare:'rpg',revolver:'m1911',smg:'uzi',rifle:'ak',gustaf:'gustaf',grenade:'gren'};
+const GUN_FILES={pistol:'mak',shotgun:'spas',sawed:'ks23',nailer:'vz61',bolt:'svd',arc:'m16',incin:'m21',flare:'rpg',revolver:'m1911',smg:'uzi',rifle:'ak',gustaf:'gustaf',grenade:'gren'};
 // measured from the converted models: origin = trigger, muzzle toward -z, meters
 const GUN_META={
- tt:{front:-.129,back:.093,top:.059,left:null,sight:[-.001,.055,-.018]},
+ mak:{front:-.095,back:.115,top:.058,left:null,sight:[0,.058,.087]},
  m1911:{front:-.125,back:.102,top:.056,left:null,sight:[0,.056,.041]},
  vz61:{front:-.189,back:.332,top:.078,left:[0,-.026,-.068],sight:[0,.078,.022]},
  uzi:{front:-.168,back:.352,top:.088,left:[0,-.05,.038],sight:[0,.088,.114]},
@@ -4599,7 +4601,11 @@ function glbShade(e){
     else m.emissive.setRGB(b*e.tint[0]*dr,b*e.tint[1]*dg,b*e.tint[2]*dg);
     m.color.setRGB(.5*dr,.5*dg,.5*dg); }
 }
+function censorWound(e,hx,hy,hz,r){ const rg=e.rig; if(!rg||!rg.bones||!rg.bones.length) return; const p=new THREE.Vector3(hx,hy,hz), v=_flv; let best=null,bd=1e9;
+  rg.root.updateMatrixWorld(true); for(const b of rg.bones){ if(rg.lostBones&&rg.lostBones.includes(b)) continue; b.getWorldPosition(v); const d=v.distanceToSquared(p)*(/hand|finger|thumb|index|middle|ring|pinky|fore|lowerarm|toe|foot|apron|_end$/i.test(b.name)?3:1); if(d<bd){ bd=d; best=b; } }
+  if(!best) return; e.cw=e.cw||[]; const near=e.cw.find(w=>w.b===best); if(near){ near.r=Math.min(.32,near.r+.03); return; } if(e.cw.length>=6) e.cw.shift(); e.cw.push({b:best,off:best.worldToLocal(p.clone()),r}); }
 function glbHit(e,hx,hy,hz,dmg,src,head){
+  censorWound(e,hx,hy,hz,/shotgun|sawed/.test(src)?.32:head?.26:.24);
   const rg=e.rig; e.lastHit={x:hx,y:hy,z:hz,src,head,t:LV.t}; goreHit(e,hx,hy,hz,dmg,src,head);
   const hp=new THREE.Vector3(hx,hy,hz), v=new THREE.Vector3(); let best=null,bd=1e9;
   for(const b of rg.bones){ if(rg.lostBones.includes(b)) continue; b.getWorldPosition(v); const dd=v.distanceTo(hp); if(dd<bd){ bd=dd; best=b; } }
@@ -4645,13 +4651,17 @@ function glbDead(e,dt){
   if(rg.fallY!=null&&rg.fallT<1){ rg.fallT=Math.min(1,rg.fallT+dt*Math.min(2.4,1/Math.sqrt(Math.max(.05,rg.fallY)*2/9.8))); const q=rg.fallT*rg.fallT; rg.root.position.y=rg.fallY*(1-q); rg.root.rotation.x=rg.fx*(1-rg.fallT); rg.root.rotation.z=rg.fz*(1-rg.fallT); if(rg.fallT>=1&&rg.fallY>.4){ meat(e.x,.3,e.z,3,.5); addDecal('blood',e.x,.015,e.z,0,1,0,1.4); SFX.splat&&SFX.splat(e); } }
   rg.deadT=(rg.deadT||0)+dt;
   if(rg.deadT<4.5){ rg.mixer.update(dt); for(const b of rg.lostBones) b.scale.setScalar(.0001); glbStumps(e,dt);
-    // nothing ends up under the floor: if the pose (or the topple) would put any part below it, the body is lifted; once it settles it comes back down onto it
-    if(!e.lurk&&!(rg.fallY!=null&&rg.fallT<1)&&rg.bones&&rg.bones.length){ rg.root.updateMatrixWorld(true); let ym=9; const v=_flv; for(const b of rg.bones){ if(rg.lostBones.includes(b)) continue; b.getWorldPosition(v); if(v.y<ym) ym=v.y; }
-      if(ym<.035) rg.root.position.y+=.035-ym; else if(ym>.09&&rg.root.position.y>0) rg.root.position.y=Math.max(0,rg.root.position.y-Math.min(ym-.09,dt*1.5)); } }
+    // resting on the floor, judged by the skin itself: pushed up only if it actually goes through, and settled straight down onto it if it's hanging above
+    if(!e.lurk&&!(rg.fallY!=null&&rg.fallT<1)){ const ym=skinLow(rg); if(ym!=null){ if(rg.dieDur==null){ const da=rg.acts&&rg.acts.Death; rg.dieDur=da&&rg.cur==='Death'?da.getClip().duration/Math.max(.2,Math.abs(da.getEffectiveTimeScale()||1))*.92:1.3; } const done=rg.deadT>=rg.dieDur, tol=done?.008:.09; if(ym<-tol) rg.root.position.y+=Math.min(-ym-tol*.5,dt*(done?2.5:.8)); else if(done&&ym>.01) rg.root.position.y-=Math.min(ym-.004,dt*(2.5+rg.deadT*2)); } } }
   else if(!rg.settled){ rg.settled=true; rg.root.traverse(o=>{ if(o.isMesh) o.castShadow=false; }); }
   if(rg.deadT<6||((rg.shT=(rg.shT||0)-dt)<=0&&(rg.shT=.25))) glbShade(e);
 }
 const _flv=new THREE.Vector3();
+// lowest point of the visible skin, from a fixed spread of vertices per mesh
+function skinLow(rg){ if(!rg.samp){ rg.samp=[]; rg.model.traverse(o=>{ if(o.isSkinnedMesh&&o.geometry&&o.geometry.attributes.position){ const n=o.geometry.attributes.position.count, st=Math.max(1,Math.floor(n/90)), ids=[]; for(let i=0;i<n;i+=st) ids.push(i); rg.samp.push([o,ids]); } }); }
+  if(!rg.samp.length) return null; rg.root.updateMatrixWorld(true); let ym=1e9; const v=_flv;
+  for(const [o,ids] of rg.samp){ if(!o.visible) continue; for(const i of ids){ v.fromBufferAttribute(o.geometry.attributes.position,i); o.boneTransform(i,v); v.applyMatrix4(o.matrixWorld); if(v.y<ym) ym=v.y; } }
+  return ym<1e8?ym:null; }
 // where does this model end up when it dies? (measured once per model from its own Death clip)
 const FALLV=new Map();
 function deathFall(rg,tip){ if(tip) return {x:0,z:-1,l:1.7}; const key=rg.info; if(FALLV.has(key)) return FALLV.get(key);
@@ -5919,32 +5929,57 @@ const MASK_FS=`#include <packing>
 uniform sampler2D tDepth; uniform vec2 uSize; uniform float uK, uNear, uFar; varying float vZ;
 void main(){ float d=texture2D(tDepth,gl_FragCoord.xy/uSize).x; float sz=-perspectiveDepthToViewZ(d,uNear,uFar); if(vZ>sz+.14) discard; gl_FragColor=vec4(uK,0.,0.,1.); }`;
 const MASKMAT=new THREE.MeshBasicMaterial({color:0xffffff,skinning:true,side:THREE.DoubleSide,depthTest:false,depthWrite:false,fog:false,blending:THREE.CustomBlending,blendEquation:THREE.MaxEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor});
-MASKMAT.uniforms={tDepth:{value:null},uSize:{value:new THREE.Vector2(1,1)},uK:{value:1},uNear:{value:.05},uFar:{value:60}};
+MASKMAT.uniforms={tDepth:{value:null},uSize:{value:new THREE.Vector2(1,1)},uK:{value:1},uNear:{value:.05},uFar:{value:60},uW:{value:[...Array(10)].map(()=>new THREE.Vector4(0,-99,0,0))}};
 MASKMAT.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,MASKMAT.uniforms);
-  sh.vertexShader='varying float vZ;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n vZ=-mvPosition.z;');
-  sh.fragmentShader='#include <packing>\nuniform sampler2D tDepth; uniform vec2 uSize; uniform float uK, uNear, uFar; varying float vZ;\n'+sh.fragmentShader.replace(/void main\(\) \{[\s\S]*$/,'void main(){ float d=texture2D(tDepth,gl_FragCoord.xy/uSize).x; float sz=-perspectiveDepthToViewZ(d,uNear,uFar); if(vZ>sz+.14) discard; gl_FragColor=vec4(uK,0.,0.,1.); }'); };
+  sh.vertexShader='varying float vZ; varying vec3 vWP;\n'+sh.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\n vZ=-mvPosition.z; vWP=(modelMatrix*vec4(transformed,1.)).xyz;');
+  sh.fragmentShader='#include <packing>\nuniform sampler2D tDepth; uniform vec2 uSize; uniform float uK, uNear, uFar; uniform vec4 uW[10]; varying float vZ; varying vec3 vWP;\n'+sh.fragmentShader.replace(/void main\(\) \{[\s\S]*$/,'void main(){ float d=texture2D(tDepth,gl_FragCoord.xy/uSize).x; float sz=-perspectiveDepthToViewZ(d,uNear,uFar); if(vZ>sz+.14) discard; float m=0.; for(int i=0;i<10;i++){ vec4 w=uW[i]; if(w.w<=0.) continue; m=max(m,1.-smoothstep(w.w*.55,w.w,distance(vWP,w.xyz))); } if(m<.01) discard; gl_FragColor=vec4(uK*m,0.,0.,1.); }'); };
 MASKMAT.customProgramCacheKey=()=>'censormask';
 // loose parts have no skeleton: they get their own copy, so the skinned version is never compiled without bones
 const MASKMAT_S=MASKMAT.clone(); MASKMAT_S.skinning=false; MASKMAT_S.uniforms=MASKMAT.uniforms; MASKMAT_S.onBeforeCompile=MASKMAT.onBeforeCompile; MASKMAT_S.customProgramCacheKey=()=>'censormask_s';
 const VMMASK=new THREE.MeshBasicMaterial({color:0x00ff00,depthTest:false,depthWrite:false});
+// what gets covered: the wounds on the dead and the places something came off. Not the whole body, not loose pieces
+function censorPts(e){ const rg=e.rig, out=[];
+  for(const w of e.cw||[]){ if(rg.lostBones&&rg.lostBones.includes(w.b)) continue; out.push([w.b.localToWorld(w.off.clone()),w.r]); }
+  for(const b of rg.lostBones||[]) out.push([b.getWorldPosition(new THREE.Vector3()),b===rg.boneBy.Head?.3:.25]);
+  return out.slice(-10); }
 function updCensor(){
   CENSOR.list.length=0; CENSOR.on=false; if(!SETTINGS.censor||state!=='play'||!LV) return;
   const cand=[];
   for(const e of LV.enemies){ if(!e.dead||e.gone||!e.rig||!e.rig.root||!e.rig.root.parent||!e.rig.root.visible) continue; const dt=e.rig.deadT||0; if(dt<.35) continue;
-    const d=Math.hypot(e.x-P.x,e.z-P.z); if(d>16) continue; cand.push([d,e.rig.root,clamp((dt-.35)/.45,0,1)]); }
-  if(typeof RCH!=='undefined') for(const c of RCH){ const o=c.o; if(!o.parent||!o.visible||c.t<.25) continue; o.getWorldPosition(_cv); const d=Math.hypot(_cv.x-P.x,_cv.z-P.z); if(d>10) continue; cand.push([d,o,clamp((c.t-.25)/.4,0,1)]); }
-  cand.sort((a,b)=>a[0]-b[0]); for(const c of cand.slice(0,10)) CENSOR.list.push([c[1],c[2]]); CENSOR.on=CENSOR.list.length>0;
+    const d=Math.hypot(e.x-P.x,e.z-P.z); if(d>16) continue; const pts=censorPts(e); if(!pts.length) continue; cand.push([d,e.rig.root,clamp((dt-.35)/.45,0,1),pts]); }
+  cand.sort((a,b)=>a[0]-b[0]); for(const c of cand.slice(0,10)) CENSOR.list.push([c[1],c[2],c[3]]); CENSOR.on=CENSOR.list.length>0;
 }
 const _sw=[], _cv=new THREE.Vector3();
 function renderCensorMask(srcRT,withVM){
   if(!CENSOR.rt||CENSOR.rt.width!==Math.max(2,srcRT.width>>1)||CENSOR.rt.height!==Math.max(2,srcRT.height>>1)){ if(CENSOR.rt) CENSOR.rt.dispose(); CENSOR.rt=new THREE.WebGLRenderTarget(Math.max(2,srcRT.width>>1),Math.max(2,srcRT.height>>1),{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false}); }
   const U=MASKMAT.uniforms; U.tDepth.value=srcRT.depthTexture; U.uSize.value.set(CENSOR.rt.width,CENSOR.rt.height); U.uNear.value=camera.near; U.uFar.value=camera.far;
   renderer.setRenderTarget(CENSOR.rt); renderer.setClearColor(0x000000,1); renderer.clear(true,false,false);
-  for(const [root,k] of CENSOR.list){ _sw.length=0;
+  for(const [root,k,pts] of CENSOR.list){ _sw.length=0; const W=U.uW.value; for(let q=0;q<10;q++){ const p=pts[q]; if(p) W[q].set(p[0].x,p[0].y,p[0].z,p[1]); else W[q].set(0,-99,0,0); }
     root.traverse(o=>{ if(o.isMesh){ const m=o.material, ghost=!m||Array.isArray(m)?false:(m.visible===false||m.colorWrite===false||(m.transparent&&m.opacity<.15)||m.blending===THREE.AdditiveBlending||o.userData.glow||!o.isSkinnedMesh&&o.parent&&o.parent.userData&&o.parent.userData.weak); if(ghost&&o.visible){ _sw.push([o,'v']); o.visible=false; } else { _sw.push([o,'m',m]); o.material=o.isSkinnedMesh?MASKMAT:MASKMAT_S; } } else if((o.isSprite||o.isPoints||o.isLine)&&o.visible){ _sw.push([o,'v']); o.visible=false; } });
     U.uK.value=k; renderer.render(root,camera);
     for(const [o,t,m] of _sw){ if(t==='m') o.material=m; else o.visible=true; } }
   if(withVM){ vmScene.overrideMaterial=VMMASK; renderer.render(vmScene,vmCam); vmScene.overrideMaterial=null; }
+}
+// ---------------- tracers: a short hot streak that runs from the muzzle to wherever the round went ----------------
+const TRC={list:[],pool:[],tex:null};
+function tracerTex(){ const c=document.createElement('canvas'); c.width=64; c.height=8; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,64,0); g.addColorStop(0,'rgba(255,170,80,0)'); g.addColorStop(.7,'rgba(255,205,130,.55)'); g.addColorStop(1,'rgba(255,248,225,1)'); x.fillStyle=g; x.fillRect(0,0,64,8);
+  const v=x.getImageData(0,0,64,8); for(let y=0;y<8;y++){ const k=1-Math.pow(Math.abs(y-3.5)/4,1.6); for(let i=0;i<64;i++) v.data[(y*64+i)*4+3]*=k; } x.putImageData(v,0,0); const t=new THREE.CanvasTexture(c); return t; }
+function tracer(x0,y0,z0,x1,y1,z1,bright){
+  if(!TRC.tex) TRC.tex=tracerTex();
+  let m=TRC.pool.pop(); if(!m){ m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:TRC.tex,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:true})); m.frustumCulled=false; m.matrixAutoUpdate=false; m.renderOrder=4; }
+  scene.add(m); const dx=x1-x0, dy=y1-y0, dz=z1-z0, L=Math.hypot(dx,dy,dz)||.01;
+  TRC.list.push({m,o:new THREE.Vector3(x0,y0,z0),d:new THREE.Vector3(dx/L,dy/L,dz/L),L,s:0,len:Math.min(L,R(1.8,2.8)),w:bright?.03:.02,a:bright?1:.75,speed:R(240,300)});
+}
+const _tx=new THREE.Vector3(), _ty=new THREE.Vector3(), _tz=new THREE.Vector3(), _tm=new THREE.Vector3(), _tc=new THREE.Vector3();
+function updTracers(dt){
+  for(let i=TRC.list.length-1;i>=0;i--){ const t=TRC.list[i]; t.s+=t.speed*dt; const head=Math.min(t.s,t.L), tail=Math.max(0,t.s-t.len);
+    if(tail>=t.L){ scene.remove(t.m); TRC.pool.push(t.m); TRC.list.splice(i,1); continue; }
+    const seg=Math.max(.05,head-tail); _tm.copy(t.o).addScaledVector(t.d,(head+tail)/2);
+    // a ribbon along the path, turned to face the camera
+    _tx.copy(t.d); _tc.copy(camera.position).sub(_tm); _ty.crossVectors(_tx,_tc).normalize(); _tz.crossVectors(_tx,_ty);
+    t.m.matrix.makeBasis(_tx.clone().multiplyScalar(seg),_ty.clone().multiplyScalar(t.w*(1+_tc.length()*.04)),_tz); t.m.matrix.setPosition(_tm);
+    t.m.material.opacity=t.a*(head>=t.L?Math.max(0,1-(tail/t.L)):1); }
 }
 
 // ---------------- wear: every weapon is used up. Guns jam more as they wear and have to be cleared; melee weapons blunt and splinter;
@@ -6182,7 +6217,7 @@ function startCampaign(ch){
   showChapter(ch*3,()=>startLevel(ch*3));
 }
 
-UPGRADES.push({id:'suppressor',r:'r',gl:'⦾',nm:'SUPPRESSOR',ds:'TT-33 and Skorpion shots carry a fraction as far',ap:()=>{ UP.suppressor=true; },max:1});
+UPGRADES.push({id:'suppressor',r:'r',gl:'⦾',nm:'SUPPRESSOR',ds:'Makarov and Skorpion shots carry a fraction as far',ap:()=>{ UP.suppressor=true; },max:1});
 
 // ---------------- HUD -------------------------------------------------
 const HUDC={};
@@ -6431,7 +6466,9 @@ $('btnDeadShop').addEventListener('click',()=>{ buildShop(); showScreen('sShop')
 $('btnMenu').addEventListener('click',toTitle);
 $('btnWinMenu').addEventListener('click',toTitle);
 $('btnResume').addEventListener('click',resumeGame);
-$('btnQuit').addEventListener('click',()=>{ bankScrap(); toTitle(); });
+$('btnSaveQuit').addEventListener('click',()=>{ saveRun(); msg('SAVED','#9dffb0'); toTitle(); });
+$('btnQuit').addEventListener('click',()=>{ if(!confirmQuit()) return; clearRun(); bankScrap(); toTitle(); });
+let quitArm=0; function confirmQuit(){ const b=$('btnQuit'); if(performance.now()-quitArm<2500){ b.textContent='ABANDON RUN'; return true; } quitArm=performance.now(); b.textContent='TAP AGAIN TO ABANDON'; setTimeout(()=>{ b.textContent='ABANDON RUN'; },2500); return false; }
 let setReturn='sTitle';
 $('btnSet').addEventListener('click',()=>{ setReturn='sTitle'; openSettings(); });
 $('btnSet2').addEventListener('click',()=>{ setReturn='sPause'; openSettings(); });
@@ -6499,7 +6536,7 @@ function updatePlay(dt){
   updateLights(dt);
   LV.eventT-=dt; if(LV.eventT<=0&&P.alive){ LV.eventT=(R(38,70)-Math.min(15,LV.L))*(LV.anom==='hum'?.45:1); horrorEvent(); }
   if(P.alive&&P.hp<P.maxHp*.3){ P.heartT-=dt; if(P.heartT<=0){ P.heartT=.9; SFX.heart(); } }
-  PS.update(dt); DROPS.update(dt); HAZE.update(dt); updPools(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updEject(dt); updDread(dt); updQuirks(dt); updMelee(dt); if((LV.cullT=(LV.cullT||0)-dt)<=0){ LV.cullT=2; cullCorpses(); } updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
+  PS.update(dt); updTracers(dt); DROPS.update(dt); HAZE.update(dt); updPools(dt); MIST.update(dt); FIRE.update(dt); updChunks(dt); updMeat(dt); updEject(dt); updDread(dt); updQuirks(dt); updMelee(dt); if((LV.cullT=(LV.cullT||0)-dt)<=0){ LV.cullT=2; cullCorpses(); } updWounds(); updRigChunks(dt); updDust(dt); updBeams(dt); updScreenBlood(dt);
   updateVM(dt,Math.min(1.3,mf)); animVM(dt); updFlashBob(dt); updMini(dt); placeAimDot();
   revealT-=dt; if(revealT<=0){ revealT=.25; revealMap(); if(mapOn) drawMap(); }
   updateHUD(dt);
