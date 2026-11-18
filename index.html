@@ -297,21 +297,21 @@ body.touch #keyi{top:calc(150px + var(--st));bottom:auto!important}
 .tb{position:absolute;display:none;border-radius:50%;padding:0;color:#f4ead0;background:rgba(12,10,6,.42);border:1.5px solid rgba(244,234,208,.38);box-shadow:0 2px 10px rgba(0,0,0,.35),inset 0 0 0 1px rgba(0,0,0,.25);touch-action:none;z-index:7;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-family:'VT323',monospace;transition:transform .06s,background .1s}
 body.touch .tb{display:flex}
 .tb .ic{width:46%;height:46%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;filter:drop-shadow(0 1px 1px #000)}
-.tb span{font-size:11px;letter-spacing:1px;line-height:1;opacity:.85;pointer-events:none}
+.tb span{font-size:9px;letter-spacing:1px;line-height:1;opacity:.85;pointer-events:none}
 .tb.on{background:rgba(255,224,138,.4);color:#1a1408;border-color:#ffe08a;transform:scale(.94)}
 .tb.lock{background:rgba(255,224,138,.5);color:#1a1408;border-color:#ffe08a}
 .tb.off{opacity:.28}
-#bFire{width:86px;height:86px;right:calc(107px + var(--sr));bottom:calc(85px + var(--sb));border:2.5px solid rgba(255,224,138,.7);background:radial-gradient(circle,rgba(255,224,138,.16),rgba(12,10,6,.45) 70%)}
+#bFire{width:80px;height:80px;right:calc(72px + var(--sr));bottom:calc(60px + var(--sb));border:2.5px solid rgba(255,224,138,.7);background:radial-gradient(circle,rgba(255,224,138,.16),rgba(12,10,6,.45) 70%)}
 #bFire .ic{width:54%;height:54%;stroke-width:1.6}
 #bFire .mel,#bFire.melee .gun{display:none}#bFire.melee .mel{display:block}
-#bAim,#bBlock{width:62px;height:62px;right:calc(27px + var(--sr));bottom:calc(153px + var(--sb))}
+#bAim,#bBlock{width:54px;height:54px;right:calc(45px + var(--sr));bottom:calc(133px + var(--sb))}
 body.touch #bAim.hide,body.touch #bBlock.hide{display:none}
-#bReload{width:50px;height:50px;right:calc(211px + var(--sr));bottom:calc(169px + var(--sb))}
-#bKick{width:58px;height:58px;right:calc(219px + var(--sr));bottom:calc(64px + var(--sb))}
+#bReload{width:46px;height:46px;right:calc(151px + var(--sr));bottom:calc(115px + var(--sb))}
+#bKick{width:52px;height:52px;right:calc(156px + var(--sr));bottom:calc(56px + var(--sb))}
 #bKick.hot{background:rgba(255,120,90,.45);border-color:#ff9a7a;animation:kickp .5s ease-in-out infinite alternate}
 @keyframes kickp{to{box-shadow:0 0 16px rgba(255,120,90,.7)}}
-#bDash{width:56px;height:56px;right:calc(26px + var(--sr));bottom:calc(42px + var(--sb))}
-#bGren{width:52px;height:52px;right:calc(124px + var(--sr));bottom:calc(207px + var(--sb))}
+#bDash{width:50px;height:50px;right:calc(17px + var(--sr));bottom:calc(53px + var(--sb))}
+#bGren{width:46px;height:46px;right:calc(109px + var(--sr));bottom:calc(147px + var(--sb))}
 #bGren b{position:absolute;right:-4px;top:-4px;min-width:20px;height:20px;border-radius:10px;background:#ffe08a;color:#1a1408;font:16px/20px 'VT323',monospace;text-align:center;padding:0 4px}
 #bGren.off b{background:#777}
 /* weapon slots */
@@ -329,15 +329,15 @@ body.touch #slots{pointer-events:auto}
 .slot b{position:absolute;right:5px;bottom:1px;font-weight:normal;font-size:15px;text-shadow:0 1px 2px #000}
 .slot.low b{color:#ff8a6a}
 body:not(.touch) #slots{opacity:.85}body:not(.touch) .slot{width:76px;height:40px}body:not(.touch) .slot img{width:50px;height:28px}
-/* swap prompt */
-#swapB{position:absolute;right:calc(272px + var(--sr));bottom:calc(122px + var(--sb));z-index:7;display:flex;align-items:center;gap:8px;padding:6px 12px 6px 8px;min-height:52px;border-radius:26px;background:rgba(40,32,12,.78);border:2px solid #ffe08a;color:#ffe08a;font-family:'VT323',monospace;pointer-events:auto;animation:swp .9s ease-in-out infinite alternate;touch-action:none}
-@keyframes swp{to{box-shadow:0 0 18px rgba(255,224,138,.45)}}
+/* swap prompt: a compact chip in the context row, beside any other prompt */
+#swapB{display:flex;align-items:center;gap:5px;padding:2px 9px 2px 6px;height:34px;border-radius:17px;background:rgba(30,24,8,.7);border:1.5px solid rgba(255,224,138,.85);color:#ffe08a;font-family:'VT323',monospace;pointer-events:auto;touch-action:none;white-space:nowrap}
 #swapB.hidden{display:none}
-#swapB .ic{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-#swapB span{display:flex;flex-direction:column;line-height:1;text-align:left}#swapB small{font-size:12px;letter-spacing:1px;opacity:.75}#swapB b{font-family:'Anton';font-weight:normal;font-size:17px;letter-spacing:1px;color:#fff}
-#swapB img{width:54px;height:40px;object-fit:contain}#swapB img[src=""]{display:none}
-body:not(.touch) #swapB{right:auto;left:50%;transform:translateX(-50%);bottom:calc(112px + var(--sb));pointer-events:none}
-#swapB kbd{font:15px 'VT323',monospace;border:1px solid rgba(255,224,138,.6);border-radius:3px;padding:0 5px}
+#swapB .ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#swapB span{display:flex;flex-direction:column;line-height:.95;text-align:left}#swapB small{font-size:10px;letter-spacing:1px;opacity:.75}#swapB b{font-family:'Anton';font-weight:normal;font-size:13px;letter-spacing:.5px;color:#fff}
+#swapB img{width:34px;height:22px;object-fit:contain;flex:none}#swapB img[src=""]{display:none}
+body:not(.touch) #swapB{pointer-events:none}
+#swapB kbd{font:11px 'VT323',monospace;border:1px solid rgba(255,224,138,.6);border-radius:2px;padding:0 3px}
+#ctxRow{align-items:center}
 /* the rest of the HUD makes room */
 body.touch #br{right:auto!important;left:50%!important;transform:translateX(-50%)!important;bottom:calc(58px + var(--sb))!important;text-align:center!important;padding:0!important;pointer-events:none!important}
 body.touch #ammoV{font-size:24px!important}body.touch #ammoR{font-size:15px!important}
@@ -346,7 +346,6 @@ body.touch #ctxRow{bottom:calc(112px + var(--sb))!important}
 body.touch #stick{z-index:2}
 #tr .hb#bPack{display:none}body.touch #tr .hb#bPack{display:block}
 @media (max-width:720px){ body.touch .slot{width:78px} }
-@media (max-height:380px){ #bGren{bottom:calc(196px + var(--sb))} #bReload{bottom:calc(160px + var(--sb))} #bAim,#bBlock{bottom:calc(146px + var(--sb))} }
 </style>
 </head>
 <body>
@@ -390,9 +389,8 @@ body.touch #stick{z-index:2}
   <div id="br"><div><span id="ammoV">60</span><span id="ammoR"></span></div><div id="wname">MAKAROV PM</div><div id="ammoAll"></div></div>
   <div id="wbar"></div>
   <div id="slots"><button class="slot" data-s="0"><i>PRIMARY</i><img alt=""><em></em><b></b></button><button class="slot" data-s="1"><i>SECONDARY</i><img alt=""><em></em><b></b></button><button class="slot" data-s="2"><i>MELEE</i><img alt=""><em></em><b></b></button></div>
-  <button id="swapB" class="hidden"><svg class="ic " viewBox="0 0 24 24"><path d="M3.5 8h15l-3.5-3.5M20.5 16h-15l3.5 3.5"/></svg><span><small>SWAP FOR</small><b id="swapN"></b></span><img id="swapI" alt=""></button>
   <div id="keys" class="hidden"></div><div id="kprompt" class="hidden"></div>
-  <div id="ctxRow"><button id="ctxB" class="ctx hidden">CLOSE DOOR</button><button id="ctxB2" class="ctx hidden">BARRICADE</button></div>
+  <div id="ctxRow"><button id="swapB" class="hidden"><svg class="ic " viewBox="0 0 24 24"><path d="M3.5 8h15l-3.5-3.5M20.5 16h-15l3.5 3.5"/></svg><span><small>SWAP FOR</small><b id="swapN"></b></span><img id="swapI" alt=""></button><button id="ctxB" class="ctx hidden">CLOSE DOOR</button><button id="ctxB2" class="ctx hidden">BARRICADE</button></div>
   <div id="reader" class="hidden"><div id="readCard"><div id="readHead"></div><div id="readTxt"></div><div id="readHint">TAP TO SKIP</div></div></div>
   <div id="noteBox" class="hidden"><small>FOUND NOTE · TAP TO CLOSE</small><p></p></div>
 </div>
@@ -408,7 +406,7 @@ body.touch #stick{z-index:2}
   <button class="tb" id="bGren"><svg class="ic " viewBox="0 0 24 24"><circle cx="11" cy="14.5" r="6.5"/><path d="M8.5 8.5V6h5v2.5M13.5 6.5h4l2 3"/><circle cx="19.5" cy="11" r="1.6"/></svg><b id="grenN">0</b></button>
 </div>
 <div id="wpick" class="hidden"><div><div class="wpa" id="wpAct"></div><div class="wpk" id="wpPack"></div></div></div>
-<div id="tut" class="hidden"><div class="tl"><b>SWIPE</b><br>LEFT SIDE TO MOVE<br><small>push far to sprint</small></div><div class="tr"><b>SWIPE</b><br>RIGHT SIDE TO AIM<br><small>it fires when the dot is on a threat · double-tap for sights</small></div><div class="tb2">TAP A WEAPON SLOT TO SWITCH · WALK OVER A GUN TO SWAP IT</div></div>
+<div id="tut" class="hidden"><div class="tl"><b>SWIPE</b><br>LEFT SIDE TO MOVE<br><small>push far to sprint</small></div><div class="tr"><b>SWIPE</b><br>RIGHT SIDE TO AIM<br><small>hold FIRE to shoot from the hip · AIM for sights</small></div><div class="tb2">TAP A WEAPON SLOT TO SWITCH · WALK OVER A GUN TO SWAP IT</div></div>
 <div id="banner"><div class="b1" id="ban1"></div><div class="b2" id="ban2"></div></div>
 
 <div class="scr" id="sTitle">
@@ -455,7 +453,7 @@ body.touch #stick{z-index:2}
     <h2>HOW TO SURVIVE</h2>
     <p style="margin-bottom:8px;opacity:.85">Five chapters, three floors each. Every floor hides a <b style="color:#6fc8ff">KEYCARD</b> and a red <b style="color:#ff6060">EXIT</b>. The third floor of each chapter has a boss holding the card. Between floors pick a mutation and choose which door to take. Death ends the run, but scrap from kills and crates is banked automatically for the Breakroom.</p>
     <table>
-      <tr class="only-touch"><td>TOUCH</td><td>Left side: move stick · Right side: drag to look · Swipe the left side to move (push far to sprint) · swipe the right side to aim · your weapon fires automatically when the dot is on a threat or crate · double-tap the right side for sights · right thumb: FIRE, AIM (BLOCK with a melee weapon), RELOAD, KICK, DASH and GRENADE · tap the weapon slots at the bottom to switch between your primary, secondary and melee · stand on a weapon and tap SWAP to trade · tap the battery for the flashlight · PACK and MAP are top-right</td></tr>
+      <tr class="only-touch"><td>TOUCH</td><td>Left side: move stick · Right side: drag to look · Swipe the left side to move (push far to sprint) · swipe the right side to aim · hold FIRE to shoot from the hip (auto-fire and aim assist can be turned on in Settings) · AIM toggles sights · right thumb: FIRE, AIM (BLOCK with a melee weapon), RELOAD, KICK, DASH and GRENADE · tap the weapon slots at the bottom to switch between your primary, secondary and melee · stand on a weapon and tap SWAP to trade · tap the battery for the flashlight · PACK and MAP are top-right</td></tr>
       <tr class="only-pc"><td>KEYBOARD</td><td>WASD move · Mouse look · Click fire · Right-click sights · Shift sprint · R reload · V kick · F flashlight · G use (doors, chargers, breakers, lockers) · B barricade · H medkit · T throw grenade · 1 primary · 2 secondary · 3 melee · wheel / Q switch · G also swaps for a weapon you're standing on · E pack · Tab map · F1 key list · Esc pause</td></tr>
       <tr><td>MEDKITS</td><td>Carry up to 3. <span class="only-touch">Tap your health</span><span class="only-pc">Press H</span> to apply one — you can't move or shoot for 3 seconds. Vests absorb damage.</td></tr>
       <tr><td>NOISE</td><td>Enemies hear you. Sprinting, splashing and gunfire bring them to look. Walk and they lose track of you.</td></tr><tr><td>DOORS</td><td>Close office doors to break line of sight. Barricade them to buy time — you'll hear them being battered.</td></tr><tr><td>PACK</td><td>Six slots for medkits and loose ammo. <span class="only-touch">Tap PACK</span><span class="only-pc">Press E</span> to see the pack and drop things.</td></tr><tr><td>BREAKERS</td><td>Some floors have no power. Flip every breaker to bring the exit online.</td></tr><tr><td>THE OCCUPANT</td><td>Stay on a floor too long and something that cannot be killed starts hunting you. Hit the glowing sac in its chest to make it stagger, hold your light on it to slow it, and get out.</td></tr><tr><td>BLEEDING</td><td>Heavy hits make you bleed until a medkit closes the wound.</td></tr><tr><td>LIGHT</td><td>Your flashlight lasts about a minute and a half. Tap the battery to switch it off and save it.</td></tr><tr><td>LOCKERS</td><td>Supply lockers hold good loot, but prying them open is loud.</td></tr><tr><td>CHARGE STATIONS</td><td>Your flashlight slowly drains. Stand at a green wall station to recharge it — each one only holds so much.</td></tr><tr><td>MAGAZINES</td><td>Ammo you find is loose. Reloading swaps magazines; when none are loaded you thumb rounds in one at a time. Spare mags refill by hand when it's quiet.</td></tr>
@@ -548,9 +546,10 @@ function detectTouch(){ const mm=q=>{ try{ return matchMedia(q).matches; }catch(
   if(!hasTouch) return false; if(mm('(pointer:coarse)')) return true; if(mm('(pointer:fine)')&&mm('(hover:hover)')) return false; return true; }
 let isTouch = detectTouch();
 
-const SETTINGS = {quality:1, sens:1, assist:true, haptics:true, volume:0.8, bodycam:true, censor:true, aimDot:true, autoFire:isTouch};
+const SETTINGS = {quality:1, sens:1, assist:false, haptics:true, volume:0.8, bodycam:true, censor:true, aimDot:true, autoFire:false};
 try{ Object.assign(SETTINGS, JSON.parse(localStorage.getItem('noclipped_settings')||'{}')); }catch(e){}
-if(!SETTINGS.afUser) SETTINGS.autoFire=isTouch;
+if(!SETTINGS.v2){ SETTINGS.v2=1; SETTINGS.assist=false; SETTINGS.autoFire=false; SETTINGS.afUser=false; }
+if(!SETTINGS.afUser) SETTINGS.autoFire=false;
 function saveSettings(){ try{ localStorage.setItem('noclipped_settings', JSON.stringify(SETTINGS)); }catch(e){} }
 let BEST = {level:0, score:0};
 try{ Object.assign(BEST, JSON.parse(localStorage.getItem('noclipped_best')||'{}')); }catch(e){}
@@ -1957,7 +1956,7 @@ const ARMS={on:false,anchors:[],fallbacks:[]};
 // in the anchor's own frame: which way the fingers point (wrist to knuckles), which way the palm faces, finger curl, thumb curl,
 // whether the index finger sits apart on a trigger, and whether a left hand mirrors the palm
 const HAND_POSES={
-  grip:{f:[0,.3,-1],p:[-1,0,0],c:1.2,th:.55,trig:1,mir:1},
+  grip:{f:[0,.3,-1],p:[-1,0,0],c:1.2,th:.3,trig:1,mir:1},
   fore:{f:[1,.15,-.8],p:[.35,1,0],c:.95,th:.35},
   cup:{f:[.35,-.3,-1],p:[1,.2,0],c:1.05,th:.45},
   hold:{f:[.6,.1,-1],p:[.25,1,0],c:.6,th:.35},
@@ -2584,7 +2583,7 @@ function fire(){
   if(!useMag&&w.ammo&&P.ammo[w.ammo]<(w.cost||1)){ SFX.click(); P.fireCd=.3; autoSwitch(); return; }
   P.fireCd=w.rate/UP.rate; if(useMag) P.mag[P.weapon]-=(w.cost||1); else if(w.ammo) P.ammo[w.ammo]-=(w.cost||1);
   if(w.melee){ meleeStart(); return; }
-  applyRecoil(P.weapon); P.adsHoldT=.7; gunWear(P.weapon);
+  applyRecoil(P.weapon); gunWear(P.weapon);
   P.shake=Math.max(P.shake,w.shake*.65); VM.kick=1; UP.shots++;
   ejectCasing(P.weapon,w.id==='shotgun'?.38:w.id==='sawed'?.5:0); muzzleSmoke(w);
   if(w.flash){ VM.flashT=.05; VM.flash.material.rotation=R(0,TAU); VM.flash.scale.setScalar(w.flash); VM.flash.material.color.set(w.lcol||0xffffff); }
@@ -4548,7 +4547,7 @@ function assetArt(){
   ESTEP.eel=[.6,(o)=>hiss({ft:'bandpass',freq:700,q:1,dur:.25,vol:.3,att:.05,out:o})]; ESTEP.lurker=[99,()=>{}];
 }
 // palm centre on each gun's grip, in the gun's own frame (origin at the trigger)
-const GRIP_AT={pistol:[0,-.066,.068],revolver:[0,-.062,.064]};
+const GRIP_AT={pistol:[0,-.066,.08],revolver:[0,-.062,.064]};
 // ---- guns: swap the viewmodels for the pack models
 function gunMat(m){ const p=new THREE.MeshPhongMaterial({map:m.map,shininess:26,specular:0x303030}); if(p.map){ p.map.encoding=THREE.LinearEncoding; p.map.anisotropy=2; } return p; }
 function swapGunModels(){
@@ -4567,7 +4566,7 @@ function swapGunModels(){
     const pistol=!meta.left;
     if(id==='grenade'){ VM.rArm(w.g,[0,-.02,.03]); }
     // the right hand's palm sits on the middle of the grip, below and behind the trigger; a pistol's left hand cups it from the left
-    else { const gp=GRIP_AT[id]||[0,-.062,.062]; VM.rArm(w.g,gp); makeReloadHand(w,pistol?[gp[0]-.032,gp[1]-.012,gp[2]-.006]:[meta.left[0]-.005,meta.left[1]-.035,meta.left[2]],id); }
+    else { const gp=GRIP_AT[id]||[0,-.062,.062]; VM.rArm(w.g,gp); makeReloadHand(w,pistol?[gp[0]-.032,gp[1]-.012,gp[2]-(id==='pistol'?.018:.006)]:[meta.left[0]-.005,meta.left[1]-.035,meta.left[2]],id); }
     w.mz.position.set(meta.sight[0],Math.max(.01,meta.top*.62),meta.front-.01);
     const b=GUN_BASE[id]; w.base.set(b[0],b[1],b[2]);
     const h=HANDLING[id]; if(h){
@@ -4949,7 +4948,7 @@ function setInputMode(t){
   document.body.classList.toggle('touch',t);
   const tc=$('touch'); if(tc) tc.classList.toggle('hidden',!t||state!=='play');
   if(!t){ const tu=$('tut'); if(tu) tu.classList.add('hidden'); } else if(document.pointerLockElement){ IN.ignoreUnlock=true; try{ document.exitPointerLock(); }catch(e){} }
-  if(!SETTINGS.afUser) SETTINGS.autoFire=t;
+  if(!SETTINGS.afUser) SETTINGS.autoFire=false;
   for(const k in HUDC) if(k.startsWith('ctx')) delete HUDC[k];
   if(typeof LV!=='undefined'&&LV&&P.owned) buildWbar();
   resize(); KEYS.last=KEYS.lastP='';
@@ -6562,7 +6561,7 @@ addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('mousemove',e=>{ if(state!=='play'||document.pointerLockElement!==canvas) return; look(e.movementX*.0022,e.movementY*.0022); });
 addEventListener('wheel',e=>{ if(state==='play') cycleWeapon(e.deltaY>0?1:-1); },{passive:true});
 document.addEventListener('pointerlockchange',()=>{ if(!isTouch&&state==='play'&&document.pointerLockElement!==canvas&&!IN.ignoreUnlock) pauseGame(); IN.ignoreUnlock=false; });
-function look(dx,dy){ const s=SETTINGS.sens*(1-.35*(IN.ads?P.ads:0))*(P.onTarget&&isTouch?.55:1); P.yaw-=dx*s; P.pitch=clamp(P.pitch-dy*s,-1.45,.62); VM.dYaw-=dx*s; VM.dPitch-=dy*s; }
+function look(dx,dy){ const s=SETTINGS.sens*(1-.35*(IN.ads?P.ads:0))*(SETTINGS.assist&&P.onTarget&&isTouch?.55:1); P.yaw-=dx*s; P.pitch=clamp(P.pitch-dy*s,-1.45,.62); VM.dYaw-=dx*s; VM.dPitch-=dy*s; }
 const touchL=$('touch'), stickE=$('stick'), knobE=$('knob');
 const roles=new Map();
 touchL.addEventListener('pointerdown',e=>{
@@ -6716,8 +6715,7 @@ function updatePlay(dt){
   updReload(dt); updPacking(dt); updKick(dt);
   P.onTarget=autoTarget(); IN.autoFire=SETTINGS.autoFire&&P.onTarget&&!pickOpen;
   { updQuickThrow(dt); const wantShoot=IN.fire||mouseDown||IN.autoFire||(QT.on&&!QT.thrown&&P.weapon===13), melee=WEAPONS[P.weapon].melee;
-    if(wantShoot&&!melee&&P.reloadT<=0) P.adsHoldT=Math.max(P.adsHoldT,.75);
-    if(wantShoot&&P.sprintPose<.45&&(melee||P.ads>.62)) fire(); }
+    if(wantShoot&&P.sprintPose<.45) fire(); }
   { const hd=H(P.weapon), w=WEAPONS[P.weapon]; if(hd.mag&&w.ammo&&P.mag[P.weapon]<(w.cost||1)&&P.reloadT<=0&&totalAmmo(P.weapon)>P.mag[P.weapon]&&P.alive&&P.fireCd<=0) startReload(false); }
   updRecoil(dt);
   if(P.light&&P.battery>0&&!P.plugged){ const was=P.battery; P.battery=Math.max(0,P.battery-dt*(LV.blackT>0?1.4:1)*UP.drain); if(was>25&&P.battery<=25) msg(isTouch?'FLASHLIGHT LOW — TAP THE BATTERY TO SAVE IT':'FLASHLIGHT LOW — [F] TO SWITCH IT OFF','#ffcf8a'); if(was>0&&P.battery<=0){ msg('YOUR LIGHT IS DEAD','#ff6b6b'); SFX.click(); } }
