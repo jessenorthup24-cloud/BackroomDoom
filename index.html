@@ -1916,6 +1916,24 @@ function bx(w,h,d,m,x,y,z,rx,ry,rz){ const o=new THREE.Mesh(new THREE.BoxGeometr
 function cy(r,l,m,x,y,z,axis,seg){ const g=new THREE.CylinderGeometry(r,r,l,seg||8); if(axis==='z') g.rotateX(Math.PI/2); else if(axis==='x') g.rotateZ(Math.PI/2); const o=new THREE.Mesh(g,m); o.position.set(x,y,z); return o; }
 const _zA=new THREE.Vector3(0,0,1);
 function limb(g,a,b,t,m){ const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],len=Math.hypot(dx,dy,dz); const o=new THREE.Mesh(new THREE.BoxGeometry(t,t*.9,len),m); o.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2); o.quaternion.setFromUnitVectors(_zA,new THREE.Vector3(dx/len,dy/len,dz/len)); g.add(o); return o; }
+// ---- hands: every viewmodel says where a hand goes and how it holds there; the rigged arms (d32) reach for these
+const ARMS={on:false,anchors:[],fallbacks:[]};
+// in the anchor's own frame: which way the fingers point (wrist to knuckles), which way the palm faces, finger curl, thumb curl,
+// whether the index finger sits apart on a trigger, and whether a left hand mirrors the palm
+const HAND_POSES={
+  grip:{f:[0,.3,-1],p:[-1,0,0],c:1.2,th:.55,trig:1,mir:1},
+  fore:{f:[1,.15,-.8],p:[.35,1,0],c:.95,th:.35},
+  cup:{f:[.35,-.3,-1],p:[1,.2,0],c:1.05,th:.45},
+  hold:{f:[.6,.1,-1],p:[.25,1,0],c:.6,th:.35},
+  pinch:{f:[-.2,.2,-1],p:[-1,-.3,0],c:.85,th:.7},
+  push:{f:[0,1,-.2],p:[0,0,-1],c:.15,th:.1},
+  guard:{f:[0,1,-.25],p:[0,.1,-1],c:.4,th:.25},
+  melee:{f:[0,0,-1],p:[-1,0,0],c:1.3,th:.7,mir:1},
+  fist:{f:[0,1,0],p:[0,0,-1],c:1.55,th:.9,mir:0},
+  guardfist:{f:[.25,.75,-1],p:[1,0,.15],c:1.55,th:.9},
+  flinch:{f:[0,1,-.1],p:[0,.05,-1],c:.22,th:.15},
+};
+function handAnchor(parent,pos,side,pose,prio){ const a=new THREE.Object3D(); a.position.set(pos[0],pos[1],pos[2]); a.userData.hand={side,pose:pose||'grip',prio:prio||1}; parent.add(a); ARMS.anchors.push(a); return a; }
 function buildVM(){
   const sleeve=lm(0x3a3d33), cuff=lm(0x2c2e27), glove=lm(0x1f1b18), dark=lm(0x2b2d31), darker=lm(0x18191b), wood=lm(0x6a4426), rust=lm(0x7a4a2a), yel=lm(0xd9a520), org=lm(0xe2571e), steel=lm(0x6d6f72), copper=lm(0xb06a2a), red=lm(0x9a2018);
   const glowB=bm(0x7fe0ff), glowO=bm(0xff8a30);
@@ -1923,8 +1941,10 @@ function buildVM(){
   // arms are plain square blocks, Minecraft-style: a gloved end holding the grip and one straight sleeve running back to the body
   const blockArm=(g,h,to,t)=>{ const d=[to[0]-h[0],to[1]-h[1],to[2]-h[2]], l=Math.hypot(d[0],d[1],d[2]); d[0]/=l; d[1]/=l; d[2]/=l; const at=k=>[h[0]+d[0]*k,h[1]+d[1]*k,h[2]+d[2]*k];
     const mkb=(a,b,m)=>{ const o=limb(g,a,b,t,m); o.scale.y=1/.9; return o; }; mkb(at(-.04),at(.06),glove); mkb(at(.06),at(l),sleeve); };
-  const rArm=(g,h)=>blockArm(g,h,[h[0]+.2,h[1]-.85,h[2]+.55],.122);
-  const lArm=(g,h)=>blockArm(g,h,[h[0]-.42,h[1]-.85,h[2]+.5],.12);
+  // the block arm stays underneath as a fallback; it's hidden once the rigged arms have loaded
+  const fb=g=>{ const f=new THREE.Group(); g.add(f); ARMS.fallbacks.push(f); f.visible=!ARMS.on; return f; };
+  const rArm=(g,h,pose,prio)=>{ blockArm(fb(g),h,[h[0]+.2,h[1]-.85,h[2]+.55],.122); return handAnchor(g,h,'R',pose||'grip',prio); };
+  const lArm=(g,h,pose,prio)=>{ blockArm(fb(g),h,[h[0]-.42,h[1]-.85,h[2]+.5],.12); return handAnchor(g,h,'L',pose||'fore',prio); };
   VM.rArm=rArm; VM.lArm=lArm;
   const mk=(id,base,build)=>{ const g=new THREE.Group(); const mz=new THREE.Object3D(); g.add(mz); const parts=build(g,mz)||{}; g.scale.setScalar(.74); g.visible=false; vmScene.add(g); VM.list.push({id,g,base:new THREE.Vector3(...base),mz,parts}); };
   mk('pipe',[.27,-.28,-.48],(g,mz)=>{ const pipe=new THREE.Group(); pipe.add(cy(.02,.5,rust,0,.25,0,'y')); pipe.add(cy(.028,.07,steel,0,.48,0,'y')); pipe.add(cy(.021,.12,rust,0,.51,-.05,'z')); pipe.rotation.set(-1.05,0,.42); g.add(pipe);
@@ -4276,9 +4296,16 @@ function updBrace(dt){
   if(on){ P.braceT-=dt; VM.sw=1; IN.fire=false; P.shake=Math.max(P.shake,1.6);
     if(e&&!e.hidden){ const d=Math.hypot(e.x-P.x,e.z-P.z), k=1-Math.exp(-dt*7); let dy=Math.atan2(-(e.x-P.x),-(e.z-P.z))-P.yaw; dy=Math.atan2(Math.sin(dy),Math.cos(dy)); P.yaw+=dy*k;
       P.pitch+=(clamp(Math.atan2(e.y+2.5*e.scale-camPos.y,d),-.5,.6)-P.pitch)*k; } }
-  if(!ANIM.brace){ if(!on) return; const g=new THREE.Group(); g.scale.setScalar(.74); vmScene.add(g); const l=new THREE.Group(), r=new THREE.Group(); g.add(l,r); VM.lArm(l,[0,0,0]); VM.rArm(r,[0,0,0]); l.position.set(-.13,-.1,-.5); r.position.set(.15,-.14,-.46); l.rotation.z=-.35; r.rotation.z=.3; ANIM.brace={g,l,r,k:0}; }
-  const B=ANIM.brace; B.k=damp(B.k,on?1:0,on?14:7,dt); B.g.visible=B.k>.01; if(!B.g.visible) return;
-  const q=on?Math.sin(LV.t*41)*.006:0; B.g.position.set(q,-.6*(1-B.k)+q,0); B.g.rotation.x=.25*(1-B.k);
+  if(!ANIM.brace){ if(!on) return; const g=new THREE.Group(); g.scale.setScalar(.74); vmScene.add(g); const l=new THREE.Group(), r=new THREE.Group(); g.add(l,r); VM.lArm(l,[0,0,0],'flinch',3); VM.rArm(r,[0,0,0],'flinch',3); ANIM.brace={g,l,r,k:0,t:0}; }
+  const B=ANIM.brace; B.k=damp(B.k,on?1:0,on?16:6,dt); B.g.visible=B.k>.01; if(!B.g.visible){ B.t=0; return; }
+  // the flinch: hands snap up from below, palms out, and hold there shaking; the left a touch higher, turned in across the face.
+  // when the roar peaks they jolt back toward you; as it ends they sink away
+  B.t+=dt; const t=B.t, k=B.k, up=k*k*(3-2*k), peak=on?Math.exp(-Math.pow((t-.7)/.18,2)):0, sh=on?1:0;
+  const tr=(ph,f)=>Math.sin(t*f+ph)*.006*sh+Math.sin(t*f*1.7+ph*2)*.003*sh;
+  B.l.position.set(-.16+tr(0,37)+.02*peak, -.62+.6*up+tr(1,43)+.012*Math.sin(t*2.3)*sh, -.5+.08*peak);
+  B.r.position.set(.17+tr(2,39)-.02*peak, -.66+.6*up+tr(3,41)-.03+.012*Math.sin(t*2.1+1)*sh, -.47+.08*peak);
+  B.l.rotation.set(.15*peak, .35, -.4+.05*Math.sin(t*3)*sh); B.r.rotation.set(.15*peak, -.3, .32+.05*Math.sin(t*2.7+1)*sh);
+  B.g.position.set(0,0,0); B.g.rotation.x=.2*(1-up);
 }
 function stalkerAI(e,dt,dist,nx,nz,spd){
   if(e.blinkT>0) return [0,0];
@@ -4457,7 +4484,8 @@ function loadAssets(prog){
   for(const k in GUN_FILES) list.push(['gun',k,'assets/guns/'+GUN_FILES[k]+AEXT]);
   for(const f of GUN_EXTRA) list.push(['gun',f,'assets/guns/'+f+AEXT]);
   for(const f of PROP_FILES) list.push(['prop',f,'assets/props/'+f+AEXT]);
-  for(const f in MELEE) list.push(['melee',f,'assets/melee/'+f+AEXT]);
+  for(const f in MELEE) if(!MELEE[f].noModel) list.push(['melee',f,'assets/melee/'+f+AEXT]);
+  list.push(['arms','arms','assets/arms/arms'+AEXT]);
   for(const k in MONS) for(const f of MONS[k].files) list.push(['mon',k,'assets/mon/'+f+AEXT]);
   list.push(['elk2','elk2','assets/mon/elk2'+AEXT]);
   let done=0;
@@ -4468,7 +4496,7 @@ function loadAssets(prog){
       try{ L.parse(u8.buffer,'',ok,bad); }catch(e){ bad(e); } };
     document.head.appendChild(sc); };
   return Promise.all(list.map(([kind,k,url])=>new Promise(res=>fetchGLB(url,g=>{
-      if(kind==='melee') (ASSET.melee=ASSET.melee||{})[k]=g; else if(kind==='prop') (ASSET.props=ASSET.props||{})[k]=g; else if(kind==='gun') ASSET.guns[k]=g; else if(kind==='mon') (ASSET.mon[k]=ASSET.mon[k]||[]).push(g); else if(kind==='elk2'){ ASSET.elk2=g; ASSET.elk=g; } else ASSET.elk=g;
+      if(kind==='melee') (ASSET.melee=ASSET.melee||{})[k]=g; else if(kind==='prop') (ASSET.props=ASSET.props||{})[k]=g; else if(kind==='gun') ASSET.guns[k]=g; else if(kind==='mon') (ASSET.mon[k]=ASSET.mon[k]||[]).push(g); else if(kind==='elk2'){ ASSET.elk2=g; ASSET.elk=g; } else if(kind==='arms'){ ASSET.arms=g; } else ASSET.elk=g;
       done++; prog&&prog(Math.round(done/list.length*100)); res(); },err=>{ console.warn('asset failed',url,err); done++; res(); }))))
     .then(()=>{ ASSET.ready=true; });
 }
@@ -5082,8 +5110,8 @@ function initAnim(){
   const lidP=new THREE.Group(); lidP.position.set(0,.035,-.08); med.add(lidP);
   const lid=box(.24,.025,.16,[M.caseSide,M.caseSide,M.case,M.caseSide,M.caseSide,M.caseSide]); lid.position.set(0,.0125,.08); lidP.add(lid);
   for(let i=0;i<3;i++){ const r=cyl(.022,.05,M.bandage,10); r.rotation.z=Math.PI/2; r.position.set(-.06+i*.055,.045,.02); med.add(r); }
-  VM.lArm(med,[-.08,-.06,.04]);
-  const rh=new THREE.Group(); med.add(rh); VM.rArm(rh,[0,0,0]); const roll=cyl(.022,.05,M.bandage,10); roll.rotation.z=Math.PI/2; roll.position.set(-.02,.03,-.02); rh.add(roll);
+  VM.lArm(med,[-.08,-.06,.04],'hold',2);
+  const rh=new THREE.Group(); med.add(rh); VM.rArm(rh,[0,0,0],'pinch',2); const roll=cyl(.022,.05,M.bandage,10); roll.rotation.z=Math.PI/2; roll.position.set(-.02,.03,-.02); rh.add(roll);
   ANIM.med={g:med,lidP,rh,roll};
   // charging: the flashlight held out to the wall socket, cable trailing back
   const plug=new THREE.Group(); plug.visible=false; vmScene.add(plug); plug.scale.setScalar(.74);
@@ -5093,17 +5121,17 @@ function initAnim(){
   const lens=new THREE.Mesh(new THREE.CircleGeometry(.022,12),M.lens.clone()); lens.position.z=-.126; lens.rotation.y=Math.PI; tor.add(lens);
   const led=new THREE.Mesh(new THREE.SphereGeometry(.005,6,4),M.led.clone()); led.position.set(0,.018,.02); tor.add(led);
   const cab=cyl(.004,.5,M.cable,5); cab.position.set(0,-.02,.3); cab.rotation.x=Math.PI/2-.5; tor.add(cab);
-  VM.rArm(tor,[0,-.025,.04]);
+  VM.rArm(tor,[0,-.025,.04],'grip',2);
   ANIM.plug={g:plug,tor,led,lens};
   // a free left hand for pushing doors open
-  const push=new THREE.Group(); push.visible=false; vmScene.add(push); push.scale.setScalar(.74); VM.lArm(push,[0,0,0]); ANIM.push={g:push};
+  const push=new THREE.Group(); push.visible=false; vmScene.add(push); push.scale.setScalar(.74); VM.lArm(push,[0,0,0],'push',2); ANIM.push={g:push};
   // reload hands: lift each pack gun's left arm into its own group so it can leave the gun
   for(const w of VM.list){ if(!w||!w.lhArgs) continue; }
   ANIM.ready=true;
 }
 // called from swapGunModels: build the support hand as a movable group with a magazine it can carry
 function makeReloadHand(w,pos,id){
-  const M=animMats(), lh=new THREE.Group(); w.g.add(lh); VM.lArm(lh,pos); w.lh=lh; w.lhRest=new THREE.Vector3(0,0,0);
+  const M=animMats(), lh=new THREE.Group(); w.g.add(lh); VM.lArm(lh,pos,/pistol|revolver/.test(id)?'cup':'fore'); w.lh=lh; w.lhRest=new THREE.Vector3(0,0,0);
   let mag;
   if(id==='flare'||id==='gustaf'){ mag=new THREE.Group(); const r=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.28,8),M.rocket); r.rotation.x=Math.PI/2; mag.add(r); const n=new THREE.Mesh(new THREE.ConeGeometry(.04,.12,8),M.rocket); n.rotation.x=-Math.PI/2; n.position.z=-.2; mag.add(n); }
   else if(id==='shotgun'||id==='sawed'){ mag=new THREE.Mesh(new THREE.CylinderGeometry(.01,.01,.06,8),M.hull); mag.rotation.x=Math.PI/2; }
@@ -5155,7 +5183,7 @@ function animVM(dt){
   if(pu.g.visible){ const o=key3([[0,-.22,-.45,-.2],[.35,-.12,-.1,-.42],[.55,-.11,-.08,-.5],[1,-.24,-.45,-.22]],pt); pu.g.position.set(o[0],o[1],o[2]); pu.g.rotation.set(-.2,.25,.2);
     if(w){ const k=Math.sin(pt*Math.PI); w.g.position.x+=.05*k; w.g.position.y-=.04*k; w.g.rotation.z-=.25*k; } }
   if(P.weapon>0) animWear(VM.list[P.weapon],dt);
-  meleeArms();
+  meleeArms(); updArms(dt);
 }
 function doorPush(){ ANIM.pushT=.7; }
 // the beam rides your stride: a bounce at each step, a sway between them, a lag when you turn
@@ -5461,8 +5489,8 @@ function equipMelee(id,dur){
 function buildMeleeVM(id){
   const w=VM.list[0], gl=ASSET.melee&&ASSET.melee[id]; if(!w||(!gl&&!MELEE[id].noModel)) return;
   for(const c of w.g.children.slice()) if(c!==w.mz) w.g.remove(c);
-  if(MELEE[id].noModel){ meleeFist(new THREE.Group(),0,1); const piv=new THREE.Group(); w.g.add(piv); const model=new THREE.Group(); const k=new THREE.Mesh(new THREE.BoxGeometry(.105,.1,.115),ARMM.glove); model.add(k); piv.add(model);
-    w.fistR=meleeFist(piv,-.03,1); w.fistR.position.z=.04; piv.rotation.set(-1.25,.05,.05); w.base.set(.17,-.2,-.42); w.piv=piv; w.parts={}; w.model=model; w.noTrail=true; w.mz.position.set(0,.06,0); return; }
+  if(MELEE[id].noModel){ meleeFist(new THREE.Group(),0,1); const piv=new THREE.Group(); piv.userData.fists=1; w.g.add(piv); const model=new THREE.Group(); const k=new THREE.Mesh(new THREE.BoxGeometry(.105,.1,.115),ARMM.glove); k.visible=!ARMS.on; model.add(k); w.fistBlock=k; piv.add(model);
+    w.fistR=meleeFist(piv,-.03,1); w.fistR.position.z=.04; piv.rotation.set(-1.25,.05,.05); w.base.set(.15,-.15,-.42); handAnchor(w.g,[-.36,.01,.02],'L','guardfist',1); w.piv=piv; w.parts={}; w.model=model; w.noTrail=true; w.mz.position.set(0,.06,0); return; }
   w.noTrail=false;
   const piv=new THREE.Group(); w.g.add(piv); const model=gl.scene.clone(true); model.traverse(o=>{ if(o.isMesh){ o.material=gunMat(o.material); } }); piv.add(model);
   // a proper fist closed round the grip; the forearm is drawn separately so it always comes up from the body (see meleeArms)
@@ -5475,11 +5503,12 @@ function buildMeleeVM(id){
 const ARMM={};
 function meleeFist(piv,gy,side){
   if(!ARMM.glove){ ARMM.glove=lm(0x1f1b18); ARMM.sleeve=lm(0x3a3d33); }
-  const g=new THREE.Group(); g.position.set(0,gy,0); const wr=new THREE.Object3D(); g.add(wr); g.userData.wrist=wr; piv.add(g); return g;   // just marks where the block arm takes hold
+  const g=new THREE.Group(); g.position.set(0,gy,0); const wr=new THREE.Object3D(); g.add(wr); g.userData.wrist=wr; piv.add(g); g.userData.anchor=handAnchor(g,[0,0,0],side>0?'R':'L',piv.userData.fists?'fist':'melee',1); return g;   // just marks where the block arm takes hold
 }
 // forearms: from each wrist back to where the elbow would be, below and beside the camera, so the arm always belongs to a body
 const _mw=new THREE.Vector3(), _md=new THREE.Vector3(), _my=new THREE.Vector3(0,1,0);
 function meleeArms(){
+  if(ARMS.on){ if(ARMM.r){ ARMM.r.a.visible=ARMM.r.c.visible=ARMM.l.a.visible=ARMM.l.c.visible=false; } return; }
   const w=VM.list[0], on=!!(w&&w.piv&&w.fistR&&P.weapon===0&&w.g.visible&&P.alive);
   if(!ARMM.r){ if(!on) return; const T=.092, mk=()=>{ const a=new THREE.Mesh(new THREE.BoxGeometry(T,1,T),ARMM.sleeve); a.frustumCulled=false; vmScene.add(a); const c=new THREE.Mesh(new THREE.BoxGeometry(T,1,T),ARMM.glove); c.frustumCulled=false; vmScene.add(c); return {a,c}; }; ARMM.r=mk(); ARMM.l=mk(); }
   // one square block per arm: the gloved end closes over the grip, the sleeve runs straight back to the body
@@ -6021,6 +6050,76 @@ function animWear(w,dt){
 }
 // melee: worn edges do less and cut less cleanly, so it takes more hits as it nears the end
 function meleeWearK(){ const m=MELEE[P.melee]; if(!m||!m.dur) return 1; const f=P.meleeDur/m.dur; return f<.35?.5+.5*f/.35:1; }
+
+// ---------------- first-person arms: one rigged, sleeved pair of arms that reach for whatever the hands are holding ----------------
+// Every frame each arm is reset to its rest pose, the visible anchor for that side is found, and a two-bone solve puts the wrist
+// there with the hand turned the way the anchor's pose says; the fingers then close round the grip.
+const ARMR={S:.82,rest:{},side:{}};
+const _aq=new THREE.Quaternion(), _aq2=new THREE.Quaternion(), _av=new THREE.Vector3(), _av2=new THREE.Vector3(), _av3=new THREE.Vector3(), _am=new THREE.Matrix4();
+function buildArms(){
+  if(ARMS.on||!ASSET.arms) return;
+  const g=new THREE.Group(), sc=ASSET.arms.scene; g.add(sc); vmScene.add(g); const by={};
+  sc.traverse(o=>{ by[o.name]=o; if(o.isMesh){ o.frustumCulled=false; const m=o.material; const p=new THREE.MeshPhongMaterial({map:m.map,skinning:true,shininess:8,specular:0x111111}); if(p.map){ p.map.encoding=THREE.LinearEncoding; p.map.magFilter=THREE.NearestFilter; } o.material=p; o.renderOrder=1; ARMR.mesh=o; } });
+  // stand the rig so its eye sits on the viewmodel camera, facing down -z
+  g.rotation.y=Math.PI; g.scale.setScalar(ARMR.S); g.updateMatrixWorld(true); by.camera.getWorldPosition(_av); g.position.sub(_av); g.updateMatrixWorld(true);
+  ARMR.g=g; ARMR.by=by;
+  for(const s of ['R','L']){ const B={up:by['upper_arm'+s],fo:by['forearm'+s],ha:by['hand'+s],sh:by['shoulder'+s],fing:[],thumb:[]};
+    for(const f of ['f_index','f_middle','f_ring','f_pinky']) B.fing.push([f,[1,2,3].map(k=>by[f+'0'+k+s])]);
+    B.thumb=[1,2,3].map(k=>by['thumb0'+k+s]);
+    B.a=B.up.getWorldPosition(new THREE.Vector3()).distanceTo(B.fo.getWorldPosition(new THREE.Vector3()));
+    B.b=B.fo.getWorldPosition(new THREE.Vector3()).distanceTo(B.ha.getWorldPosition(new THREE.Vector3()));
+    B.shPos=B.sh.position.clone(); ARMR.side[s]=B; }
+  sc.traverse(o=>{ if(o.isBone) ARMR.rest[o.uuid]=o.quaternion.clone(); });
+  ARMS.on=true; for(const f of ARMS.fallbacks) f.visible=false; for(const w of VM.list) if(w&&w.fistBlock) w.fistBlock.visible=false;
+}
+function shownInVM(o){ while(o){ if(!o.visible) return false; if(o===vmScene) return true; o=o.parent; } return false; }
+// turn a bone (in world terms) so the direction from it to `childPos` becomes the direction to `to`
+function aimBone(b,childPos,to){ b.getWorldPosition(_av); const cur=_av2.copy(childPos).sub(_av).normalize(), des=_av3.copy(to).sub(_av).normalize();
+  _aq.setFromUnitVectors(cur,des); b.getWorldQuaternion(_aq2); _aq2.premultiply(_aq); b.parent.getWorldQuaternion(_aq); b.quaternion.copy(_aq.invert().multiply(_aq2)); b.updateMatrixWorld(true); }
+function setWorldQuat(b,q){ b.parent.getWorldQuaternion(_aq); b.quaternion.copy(_aq.invert().multiply(q)); b.updateMatrixWorld(true); }
+function handFrame(anchor,side,outQ,outPos){
+  const H=anchor.userData.hand, P_=HAND_POSES[H.pose]||HAND_POSES.grip; anchor.getWorldQuaternion(_aq2); anchor.getWorldPosition(outPos);
+  const f=new THREE.Vector3(...P_.f).normalize().applyQuaternion(_aq2), p=new THREE.Vector3(P_.p[0]*(side==='L'&&P_.mir?-1:1),P_.p[1],P_.p[2]).normalize().applyQuaternion(_aq2);
+  const X=side==='R'?p.clone().negate():p.clone(); const Y=f.clone().addScaledVector(X,-f.dot(X)).normalize(); const Z=new THREE.Vector3().crossVectors(X,Y);
+  outQ.setFromRotationMatrix(_am.makeBasis(X,Y,Z));
+  // the anchor marks the middle of what's held; the wrist sits back along the hand and off the palm
+  outPos.addScaledVector(Y,-.058*ARMR.S).addScaledVector(p,-.028*ARMR.S);
+  return P_;
+}
+function updArms(dt){
+  if(!ARMS.on){ if(ASSET.arms) buildArms(); return; }
+  const show=(state==='play'||state==='paused')&&P.alive; ARMR.g.visible=show; if(!show) return;
+  vmScene.updateMatrixWorld(true);
+  for(const o of Object.values(ARMR.by)) if(o.isBone&&ARMR.rest[o.uuid]) o.quaternion.copy(ARMR.rest[o.uuid]);
+  for(const s of ['R','L']){ const B=ARMR.side[s]; B.sh.position.copy(B.shPos); }
+  ARMR.g.updateMatrixWorld(true);
+  for(const s of ['R','L']){
+    const B=ARMR.side[s]; let best=null;
+    for(const a of ARMS.anchors){ const h=a.userData.hand; if(h.side!==s||!shownInVM(a)) continue; if(!best||h.prio>=best.userData.hand.prio) best=a; }
+    const T=new THREE.Vector3(), Q=new THREE.Quaternion(); let pose=null;
+    if(best) pose=handFrame(best,s,Q,T);
+    else { T.set(s==='R'?.34:-.34,-.78,.05); B.ha.getWorldQuaternion(Q); }
+    // ease across a change of grip so the hand travels instead of teleporting
+    const st=B.st||(B.st={a:null,k:1,T:T.clone(),Q:Q.clone()});
+    if(st.a!==best){ st.from={T:st.T.clone(),Q:st.Q.clone()}; st.k=0; st.a=best; }
+    if(st.k<1){ st.k=Math.min(1,st.k+dt/.16); const e=st.k*st.k*(3-2*st.k); T.lerpVectors(st.from.T,T,e); Q.slerpQuaternions?Q.copy(st.from.Q.clone().slerp(Q,e)):Q.copy(THREE.Quaternion.slerp(st.from.Q,Q,new THREE.Quaternion(),e)); }
+    st.T.copy(T); st.Q.copy(Q);
+    // two bones: if the target is out of reach the shoulder comes forward to meet it (it's off screen)
+    const S0=B.up.getWorldPosition(new THREE.Vector3()), a=B.a, b=B.b; let d=S0.distanceTo(T), max=(a+b)*.985;
+    if(d>max){ const n=T.clone().sub(S0).normalize().multiplyScalar(Math.min(.3,d-max)); const sw=B.sh.getWorldPosition(new THREE.Vector3()).add(n); B.sh.parent.worldToLocal(sw); B.sh.position.copy(sw); B.sh.updateMatrixWorld(true); }
+    const S=B.up.getWorldPosition(new THREE.Vector3()); d=Math.min(S.distanceTo(T),(a+b)*.999); const n=T.clone().sub(S).normalize();
+    const pole=new THREE.Vector3(s==='R'?.75:-.75,-1,.35); pole.addScaledVector(n,-pole.dot(n)).normalize();
+    const ca=clamp((a*a+d*d-b*b)/(2*a*d),-1,1), E=S.clone().addScaledVector(n,a*ca).addScaledVector(pole,a*Math.sqrt(1-ca*ca));
+    aimBone(B.up,B.fo.getWorldPosition(new THREE.Vector3()),E);
+    aimBone(B.fo,B.ha.getWorldPosition(new THREE.Vector3()),T);
+    setWorldQuat(B.ha,Q);
+    // fingers close round whatever is held; the trigger finger stays apart
+    const c=pose?pose.c:.5, th=pose?pose.th:.3;
+    for(const [nm,bs] of B.fing){ const k=(pose&&pose.trig&&nm==='f_index')?.38:1; const amt=[.95,1.15,.8];
+      bs.forEach((bn,i)=>{ if(bn){ bn.quaternion.copy(ARMR.rest[bn.uuid]).multiply(_aq.setFromAxisAngle(_av.set(1,0,0),c*k*amt[i])); } }); }
+    B.thumb.forEach((bn,i)=>{ if(bn) bn.quaternion.copy(ARMR.rest[bn.uuid]).multiply(_aq.setFromAxisAngle(_av.set(1,0,0),th*[.35,.6,.5][i])); });
+  }
+}
 
 // ---------------- campaign ----------------------------------------------
 const CHAPTERS=[
