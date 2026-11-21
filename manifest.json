@@ -1,0 +1,15 @@
+{
+ "build": 96,
+ "label": "b96 e359b58",
+ "engine": 40702,
+ "pack": "stage2-96.pck",
+ "size": 12872,
+ "sha256": "e8466d11bd95165cafd3edd4d2ced8f79765deb1d0c69e21a4999ef9760a6408",
+ "full": {
+  "build": 96,
+  "label": "b96 e359b58",
+  "pack": "content-96.pck",
+  "size": 71583600,
+  "sha256": "fb03045dd5d9950e45954d2a1d87d034d705de4ce8d1df2ddc54c5f83d4efe79"
+ }
+}
